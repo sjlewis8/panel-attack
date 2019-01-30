@@ -167,6 +167,7 @@ Stack = class(function(s, which, mode, speed, difficulty, player_number)
     s.unverified_garbage = {}
     s.combos = {}  --TODO: use these to show stats at the end of a game
     s.chains = {}
+    s.guesses = ""
   end)
 
 function Stack.mkcpy(self, other)
@@ -255,6 +256,7 @@ function Stack.mkcpy(self, other)
   other.foreign = self.foreign
   other.combos = deepcpy(self.combos)
   other.chains = deepcpy(self.chains)
+  other.guesses = tostring(self.guesses) --not sure if tostring is necessary.  I do need to make sure it passes the value, not the reference to the string.
   return other
 end
 
@@ -878,17 +880,71 @@ end
 
 --foreign_run is for a stack that belongs to another client.
 function Stack.foreign_run(self)
-  local times_to_run = min(string.len(self.input_buffer),
-      self.max_runs_per_frame)
+  local times_to_run = max(1, min(string.len(self.input_buffer),
+      self.max_runs_per_frame))
   if self.play_to_end then
     if string.len(self.input_buffer) < 4 then
       self.play_to_end = nil
       stop_sounds = true
     end
   end
+  if #self.guesses > 0 and #self.input_buffer > 0 then
+    --correct our guesses and re-simulate
+    local input_buffer = self.input_buffer
+    local guesses = self.guesses
+    local prev_states = self.prev_states
+    local CLOCK = self.CLOCK
+    local t = CLOCK - #self.guesses
+    local next_self = prev_states[t]
+    local n_corrections = 0
+    --[[
+    while next_self and (next_self.prev_active_panels ~= 0 or
+        next_self.n_active_panels ~= 0) do
+      time = time + 1
+      next_self = prev_states[time+1]
+    end
+    --]]
+    next_self.in_rollback = true
+    while t < CLOCK-1 and #guesses > 0 and #input_buffer > 0 do
+      while #guesses > 0 and string.sub(guesses,1,1) == string.sub(input_buffer,1,1) do
+        --we guessed the correct input, move past this state
+        --there is no need to correct it
+        print("correct guess")
+        next_self = prev_states[t]
+        next_self.guesses = nil
+        input_buffer = string.sub(input_buffer,2)
+        guesses = string.sub(guesses,2)
+        t = t + 1
+      end
+      print("incorrect guess, re-simulating...")
+      next_self:mkcpy(prev_states[t])
+      next_self.input_state = string.sub(input_buffer,1,1)
+      next_self:controls()
+      next_self:PdP()
+      input_buffer = string.sub(input_buffer,2)
+      guesses = string.sub(guesses,2)
+      t = t + 1
+    end
+    next_self.in_rollback = nil
+    next_self.input_buffer = input_buffer
+    self:fromcpy(prev_states[t])
+  end
   for i=1,times_to_run do
+    
     self:update_cards()
     self.input_state = string.sub(self.input_buffer,1,1)
+    if self.input_state:len() == 0 then
+      print(self.CLOCK)
+      local guess = ""
+      if self.prev_states[self.CLOCK-1] then
+        guess = self.prev_states[self.CLOCK-1].input_state 
+      else 
+        guess = "A"
+      end
+      self.guesses = self.guesses..guess
+      self.input_state = guess
+      print("guessing input was "..guess)
+    end
     self:prep_rollback()
     self:controls()
     self:prep_first_row()
