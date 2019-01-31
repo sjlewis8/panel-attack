@@ -838,6 +838,7 @@ function Stack.prep_rollback(self)
   local prev_states = self.prev_states
   -- prev_states will not exist if we're doing a rollback right now
   if prev_states then
+    print("in prep_rollback, setting prev_states["..self.CLOCK.."]")
     local garbage_target = self.garbage_target
     self.garbage_target = nil
     self.prev_states = nil
@@ -888,12 +889,17 @@ function Stack.foreign_run(self)
       stop_sounds = true
     end
   end
+  local CLOCK = self.CLOCK
   if #self.guesses > 0 and #self.input_buffer > 0 then
     --correct our guesses and re-simulate
     local input_buffer = self.input_buffer
     local guesses = self.guesses
+    print("guesses: "..guesses)
+    print("input_buffer: "..input_buffer)
     local prev_states = self.prev_states
-    local CLOCK = self.CLOCK
+    if not prev_states then
+      error("prev_states is nil")
+    end
     local t = CLOCK - #self.guesses
     local next_self = prev_states[t]
     local n_corrections = 0
@@ -904,37 +910,67 @@ function Stack.foreign_run(self)
       next_self = prev_states[time+1]
     end
     --]]
-    next_self.in_rollback = true
-    while t < CLOCK-1 and #guesses > 0 and #input_buffer > 0 do
-      while #guesses > 0 and string.sub(guesses,1,1) == string.sub(input_buffer,1,1) do
-        --we guessed the correct input, move past this state
-        --there is no need to correct it
-        print("correct guess")
-        next_self = prev_states[t]
-        next_self.guesses = nil
-        input_buffer = string.sub(input_buffer,2)
-        guesses = string.sub(guesses,2)
-        t = t + 1
-      end
-      print("incorrect guess, re-simulating...")
-      next_self:mkcpy(prev_states[t])
-      next_self.input_state = string.sub(input_buffer,1,1)
-      next_self:controls()
-      next_self:PdP()
+   -- next_self.in_rollback = true
+    local correction_count = 0
+    while t < CLOCK and #guesses > 0 and #input_buffer > 0 and  string.sub(guesses,1,1) == string.sub(input_buffer,1,1) do
+      --we guessed the correct input, move past this state
+      --there is no need to correct it
+      print("correct guess")
+      next_self = prev_states[t]
+      next_self.guesses = nil
       input_buffer = string.sub(input_buffer,2)
       guesses = string.sub(guesses,2)
       t = t + 1
     end
-    next_self.in_rollback = nil
-    next_self.input_buffer = input_buffer
     self:fromcpy(prev_states[t])
+    self.input_buffer = input_buffer
+    while t < CLOCK and #guesses > 0 and #input_buffer > 0 do
+      print("incorrect guess, re-simulating...")
+      print("setting prev_states["..t.."]")
+      self:mkcpy(prev_states[t])
+      self.input_state = string.sub(self.input_buffer,1,1)
+      self:controls()
+      self:PdP()
+      self.input_buffer = string.sub(self.input_buffer,2)
+      guesses = string.sub(guesses,2)
+      t = t + 1
+      n_corrections = n_corrections + 1
+    end
+    if n_corrections > 0 then
+      print("a correction was made, need to re-simutlate remaining frames")
+      --we'll assume here we don't have any input buffer remaining
+      if self.input_buffer ~= "" then
+        error("we assumed self.input_buffer would be empty and it wasn't")
+      end
+      for i = 1, #guesses do 
+        print("resimulating CLOCK: "..self.CLOCK)
+        local guess = string.sub(guesses,i,1)
+        self.input_state = guess
+        self:prep_rollback()
+        self:controls()
+        self:prep_first_row()
+        self:PdP()
+        
+      end
+    else
+      self:fromcpy(prev_states[CLOCK-1])
+      self.CLOCK = self.CLOCK + 1
+    end
+    self.prev_states = prev_states
+    --next_self.in_rollback = nil
+    self.input_buffer = input_buffer
+  end
+  print("self.CLOCK: "..self.CLOCK)
+  print("CLOCK: "..CLOCK)
+  if self.CLOCK ~= CLOCK then
+    error("catching up didn't put us at the right CLOCK value")
   end
   for i=1,times_to_run do
-    
+    print("done catching up simulations")
+    print("CLOCK is now: "..self.CLOCK)
     self:update_cards()
     self.input_state = string.sub(self.input_buffer,1,1)
     if self.input_state:len() == 0 then
-      print(self.CLOCK)
       local guess = ""
       if self.prev_states[self.CLOCK-1] then
         guess = self.prev_states[self.CLOCK-1].input_state 
