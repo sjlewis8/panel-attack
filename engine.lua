@@ -257,6 +257,8 @@ function Stack.mkcpy(self, other)
   other.combos = deepcpy(self.combos)
   other.chains = deepcpy(self.chains)
   other.guesses = tostring(self.guesses) --not sure if tostring is necessary.  I do need to make sure it passes the value, not the reference to the string.
+  other.top_cur_row = self.top_cur_row
+  other.has_risen = self.has_risen
   return other
 end
 
@@ -865,6 +867,9 @@ end
 
 function Stack.prep_first_row(self)
   if self.do_first_row then
+    if self.which == 2 then
+      print("DOING FIRST ROW")
+    end
     self.do_first_row = nil
     self:new_row()
     self.cur_row = self.cur_row-1
@@ -921,13 +926,14 @@ function Stack.foreign_run(self)
       input_buffer = string.sub(input_buffer,2)
       guesses = string.sub(guesses,2)
       t = t + 1
-    end
-    if t < CLOCK and #guesses > 0 and #self.input_buffer > 0 then
-      self:fromcpy(prev_states[t])
+      --print("t incremented. now: "..t)
     end
     self.input_buffer = input_buffer
     local last_input = ""
     while t < CLOCK and #guesses > 0 and #self.input_buffer > 0 do
+      if self.CLOCK ~= t then
+        self:fromcpy(prev_states[t])
+      end
       print("incorrect guess, re-simulating...")
       print("setting prev_states["..t.."]")
       self:mkcpy(prev_states[t])
@@ -938,6 +944,7 @@ function Stack.foreign_run(self)
       self.input_buffer = string.sub(self.input_buffer,2)
       guesses = string.sub(guesses,2)
       t = t + 1
+      --print("t incremented. now: "..t)
       n_corrections = n_corrections + 1
     end
     if n_corrections > 0 then
@@ -945,7 +952,7 @@ function Stack.foreign_run(self)
       --we'll assume here we don't have any input buffer remaining
       if self.input_buffer ~= "" then
         print("We had more input_buffer than we had guesses!")
-        guesses = string.sub(self.input_buffer,1,-1)..string.sub(guesses,#self.input_buffer+1,-1)
+        guesses = string.sub(self.input_buffer,1,#guesses)
       end
       
       if last_input and last_input ~= "" and last_input ~= string.sub(guesses,1,1) then
@@ -960,28 +967,26 @@ function Stack.foreign_run(self)
         print("resimulating CLOCK: "..self.CLOCK)
         guessed_input = string.sub(guesses,i,i)
         self.input_state = guessed_input
-        self:prep_rollback()
+        self:mkcpy(prev_states[self.CLOCK])--self:prep_rollback()
+        print("ran self:mkcpy(prev_states["..self.CLOCK.."]")
         self:controls()
         self:prep_first_row()
         self:PdP()
       end
-    else
-      self:fromcpy(prev_states[CLOCK-1])
-      self.CLOCK = self.CLOCK + 1
     end
     self.prev_states = prev_states
     --next_self.in_rollback = nil
     self.input_buffer = input_buffer
     self.guesses = guesses
   end
-  print("self.CLOCK: "..self.CLOCK)
-  print("CLOCK: "..CLOCK)
+  --print("self.CLOCK: "..self.CLOCK)
+  --print("CLOCK: "..CLOCK)
   if self.CLOCK ~= CLOCK then
     error("catching up didn't put us at the right CLOCK value")
   end
   for i=1,times_to_run do
-    print("done catching up simulations")
-    print("CLOCK is now: "..self.CLOCK)
+    --print("done catching up simulations")
+    --print("CLOCK is now: "..self.CLOCK)
     self:update_cards()
     self.input_state = string.sub(self.input_buffer,1,1)
     if self.input_state:len() == 0 then
@@ -989,9 +994,13 @@ function Stack.foreign_run(self)
       if self.prev_states[self.CLOCK-1] then
         guess = self.prev_states[self.CLOCK-1].input_state 
       else 
+        print("assumed A because we couldn't find the previous input state")
         guess = "A"
       end
       self.guesses = self.guesses..guess
+      if #self.guesses > 120 then
+        error("we've made more than 120 guesses without inputs from the other side")
+      end
       self.input_state = guess
       print("guessing input was "..guess)
     end
@@ -2576,6 +2585,9 @@ end
 
 function Stack.new_row(self)
   local panels = self.panels
+  if self.which == 2 then
+    print("in new_row")
+  end
   -- move cursor up
   self.cur_row = bound(1, self.cur_row + 1, self.top_cur_row)
   -- move panels up
