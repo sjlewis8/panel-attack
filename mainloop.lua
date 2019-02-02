@@ -45,6 +45,7 @@ function fmainloop()
   sound_init()
   while true do
     leftover_time = 1/120
+    leftover_time2 = 1/120
     consuming_timesteps = false
     func,arg = func(unpack(arg or {}))
     collectgarbage("collect")
@@ -1300,6 +1301,9 @@ function main_net_vs()
           P1:local_run() 
         end
       end
+      if not P2.game_over then
+        P2:foreign_run()
+      end
     else
       variable_step(function()
         if not P1.game_over then
@@ -1309,10 +1313,10 @@ function main_net_vs()
             P1:local_run() 
           end
         end
+        if not P2.game_over then
+          P2:foreign_run()
+        end
       end)
-    end
-    if not P2.game_over then
-      P2:foreign_run()
     end
     local outcome_claim = nil
     if P1.game_over and P2.game_over and P1.CLOCK == P2.CLOCK then

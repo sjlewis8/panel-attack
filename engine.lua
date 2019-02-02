@@ -838,7 +838,9 @@ function Stack.prep_rollback(self)
   local prev_states = self.prev_states
   -- prev_states will not exist if we're doing a rollback right now
   if prev_states then
-    print("in prep_rollback, setting prev_states["..self.CLOCK.."]")
+    if self.which == 2 then
+      print("in prep_rollback, setting prev_states["..self.CLOCK.."]")
+    end
     local garbage_target = self.garbage_target
     self.garbage_target = nil
     self.prev_states = nil
@@ -881,8 +883,7 @@ end
 
 --foreign_run is for a stack that belongs to another client.
 function Stack.foreign_run(self)
-  local times_to_run = max(1, min(string.len(self.input_buffer),
-      self.max_runs_per_frame))
+  local times_to_run = 1 --max(1, min(string.len(self.input_buffer), self.max_runs_per_frame))
   if self.play_to_end then
     if string.len(self.input_buffer) < 4 then
       self.play_to_end = nil
@@ -911,7 +912,6 @@ function Stack.foreign_run(self)
     end
     --]]
    -- next_self.in_rollback = true
-    local correction_count = 0
     while t < CLOCK and #guesses > 0 and #input_buffer > 0 and  string.sub(guesses,1,1) == string.sub(input_buffer,1,1) do
       --we guessed the correct input, move past this state
       --there is no need to correct it
@@ -922,13 +922,17 @@ function Stack.foreign_run(self)
       guesses = string.sub(guesses,2)
       t = t + 1
     end
-    self:fromcpy(prev_states[t])
+    if t < CLOCK and #guesses > 0 and #self.input_buffer > 0 then
+      self:fromcpy(prev_states[t])
+    end
     self.input_buffer = input_buffer
-    while t < CLOCK and #guesses > 0 and #input_buffer > 0 do
+    local last_input = ""
+    while t < CLOCK and #guesses > 0 and #self.input_buffer > 0 do
       print("incorrect guess, re-simulating...")
       print("setting prev_states["..t.."]")
       self:mkcpy(prev_states[t])
       self.input_state = string.sub(self.input_buffer,1,1)
+      last_input = self.input_state
       self:controls()
       self:PdP()
       self.input_buffer = string.sub(self.input_buffer,2)
@@ -937,20 +941,29 @@ function Stack.foreign_run(self)
       n_corrections = n_corrections + 1
     end
     if n_corrections > 0 then
-      print("a correction was made, need to re-simutlate remaining frames")
+      print("a correction was made, need to re-simulate remaining frames")
       --we'll assume here we don't have any input buffer remaining
       if self.input_buffer ~= "" then
-        error("we assumed self.input_buffer would be empty and it wasn't")
+        print("We had more input_buffer than we had guesses!")
+        guesses = string.sub(self.input_buffer,1,-1)..string.sub(guesses,#self.input_buffer+1,-1)
       end
+      
+      if last_input and last_input ~= "" and last_input ~= string.sub(guesses,1,1) then
+        local n_guesses = #guesses
+        guesses = ""
+        for i = 1, n_guesses do
+          guesses = guesses..last_input
+        end
+      end
+      local guessed_input
       for i = 1, #guesses do 
         print("resimulating CLOCK: "..self.CLOCK)
-        local guess = string.sub(guesses,i,1)
-        self.input_state = guess
+        guessed_input = string.sub(guesses,i,i)
+        self.input_state = guessed_input
         self:prep_rollback()
         self:controls()
         self:prep_first_row()
         self:PdP()
-        
       end
     else
       self:fromcpy(prev_states[CLOCK-1])
@@ -959,6 +972,7 @@ function Stack.foreign_run(self)
     self.prev_states = prev_states
     --next_self.in_rollback = nil
     self.input_buffer = input_buffer
+    self.guesses = guesses
   end
   print("self.CLOCK: "..self.CLOCK)
   print("CLOCK: "..CLOCK)
