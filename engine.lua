@@ -840,9 +840,9 @@ function Stack.prep_rollback(self)
   local prev_states = self.prev_states
   -- prev_states will not exist if we're doing a rollback right now
   if prev_states then
-    if self.which == 2 then
-      print("in prep_rollback, setting prev_states["..self.CLOCK.."]")
-    end
+    -- if self.which == 2 then
+      -- print("in prep_rollback, setting prev_states["..self.CLOCK.."]")
+    -- end
     local garbage_target = self.garbage_target
     self.garbage_target = nil
     self.prev_states = nil
@@ -888,7 +888,7 @@ end
 
 --foreign_run is for a stack that belongs to another client.
 function Stack.foreign_run(self)
-  local times_to_run = 1 --max(1, min(string.len(self.input_buffer), self.max_runs_per_frame))
+  local times_to_run = (self.game_over and 0) or 1 --max(1, min(string.len(self.input_buffer), self.max_runs_per_frame))
   if self.play_to_end then
     if string.len(self.input_buffer) < 4 then
       self.play_to_end = nil
@@ -1649,7 +1649,7 @@ function Stack.PdP(self)
     --maybe make a list of who is currently targeting us
     -- if self.garbage_target.CLOCK < self.CLOCK then
       -- if not (self.next_speculation_time and self.next_speculation_time > self.CLOCK) then
-    self:speculate_garbage()
+    --self:speculate_garbage()
       --end
     --end
     local to_send = self.telegraph:pop_all_ready_garbage()
@@ -2032,120 +2032,121 @@ function Stack.really_send(self, to_send)
   end
 end
 
-function Stack.speculate_garbage(self)
-  if self.incoming_telegraph and not self.foreign then
-    -- if self.which == 1 then
-      -- print("speculating garbage")
+
+-- function Stack.speculate_garbage(self)
+  -- if self.incoming_telegraph and not self.foreign then
+    -- -- if self.which == 1 then
+      -- -- print("speculating garbage")
+    -- -- end
+    -- --[[
+    -- self.next_speculation_time = self.garbage_target.telegraph:soonest_stopper()
+    -- if self.next_speculation_time then
+      -- --if self.which == 1 then
+        -- print("the soonest garbage might come is frame: "..self.next_speculation_time)
+      -- --end
+    -- else
+    -- --]]
+    -- if self.CLOCK > self.incoming_telegraph.sender.CLOCK then
+      -- local garbage_this_frame = self.incoming_telegraph:pop_all_ready_garbage(self.CLOCK)
+      -- if garbage_this_frame then
+        -- print("in Stack.speculate_garbage")
+        -- print("Player "..self.which..", frame "..self.CLOCK)
+        -- print("table_to_string(garbage_this_frame)")
+        -- print(table_to_string(garbage_this_frame))
+        -- self.unverified_garbage[self.CLOCK] = {}
+        -- for k, block in pairs(garbage_this_frame) do
+          -- self.unverified_garbage[self.CLOCK][k] =
+          -- {
+            -- block[1], 
+            -- block[2], 
+            -- block[3], 
+            -- block[4], 
+            -- frame_earned = block.frame_earned
+          -- }
+        -- end
+      -- end 
+      
+      -- if not self.in_rollback then 
+        -- self.garbage_q:push(garbage_this_frame)
+      -- end
+      -- -- print("in stack.speculate_garbage")
+      -- -- print("self.CLOCK: "..self.CLOCK)
+      -- -- print("self.unverified_garbage[self.CLOCK]: ")
+      -- -- print(self.unverified_garbage[self.CLOCK] or "nil")
+      -- --[[
+      -- if self.unverified_garbage[self.CLOCK] and self.unverified_garbage[self.CLOCK][1] then
+        -- --if self.which == 1 then
+          -- print("GARBAGE SPECULATED FOR THIS FRAME:")
+          -- print(self.CLOCK)
+          -- print(json.encode(self.unverified_garbage[self.CLOCK]))
+        -- --end
+        -- self.garbage_q:push(self.unverified_garbage[self.CLOCK])
+      -- else
+        -- if self.which == 1 then
+          -- print("no garbage speculated")
+        -- end
+      -- end
+      -- --]]
+    -- else -- self.CLOCK <= sender.CLOCK
+      -- --we don't need to speculate because the sender is ahead
+      -- --the sender will already have sent garbage to our 
+      -- --self.later_garbage
+      
+      -- --we should pop any ready garbage from our incoming_telegraph though so it stops being rendered
+      -- self.incoming_telegraph:pop_all_ready_garbage(self.CLOCK)
     -- end
-    --[[
-    self.next_speculation_time = self.garbage_target.telegraph:soonest_stopper()
-    if self.next_speculation_time then
-      --if self.which == 1 then
-        print("the soonest garbage might come is frame: "..self.next_speculation_time)
-      --end
-    else
-    --]]
-    if self.CLOCK > self.incoming_telegraph.sender.CLOCK then
-      local garbage_this_frame = self.incoming_telegraph:pop_all_ready_garbage(self.CLOCK)
-      if garbage_this_frame then
-        print("in Stack.speculate_garbage")
-        print("Player "..self.which..", frame "..self.CLOCK)
-        print("table_to_string(garbage_this_frame)")
-        print(table_to_string(garbage_this_frame))
-        self.unverified_garbage[self.CLOCK] = {}
-        for k, block in pairs(garbage_this_frame) do
-          self.unverified_garbage[self.CLOCK][k] =
-          {
-            block[1], 
-            block[2], 
-            block[3], 
-            block[4], 
-            frame_earned = block.frame_earned
-          }
-        end
-      end 
-      
-      if not self.in_rollback then 
-        self.garbage_q:push(garbage_this_frame)
-      end
-      -- print("in stack.speculate_garbage")
-      -- print("self.CLOCK: "..self.CLOCK)
-      -- print("self.unverified_garbage[self.CLOCK]: ")
-      -- print(self.unverified_garbage[self.CLOCK] or "nil")
-      --[[
-      if self.unverified_garbage[self.CLOCK] and self.unverified_garbage[self.CLOCK][1] then
-        --if self.which == 1 then
-          print("GARBAGE SPECULATED FOR THIS FRAME:")
-          print(self.CLOCK)
-          print(json.encode(self.unverified_garbage[self.CLOCK]))
-        --end
-        self.garbage_q:push(self.unverified_garbage[self.CLOCK])
-      else
-        if self.which == 1 then
-          print("no garbage speculated")
-        end
-      end
-      --]]
-    else -- self.CLOCK <= sender.CLOCK
-      --we don't need to speculate because the sender is ahead
-      --the sender will already have sent garbage to our 
-      --self.later_garbage
-      
-      --we should pop any ready garbage from our incoming_telegraph though so it stops being rendered
-      self.incoming_telegraph:pop_all_ready_garbage(self.CLOCK)
-    end
-  end
-end
+  -- end
+-- end
 
 function Stack.recv_garbage(self, time, to_recv)
   
   --if we can verify we used all the right garbage at the right times
   --then we don't have to roll back
-  local incoming_json = json.encode(to_recv)
-  local unverified_json = json.encode({{}})
-  if self.unverified_garbage and self.unverified_garbage[time] then
-    unverified_json = json.encode(self.unverified_garbage[time])
-  end
-  local incoming_matches_unverified = incoming_json == unverified_json
-  if incoming_matches_unverified then
-    --if self.which == 1 then
-    print("unverified garbage and received garbage matched")
-    --end
-    --clear unverified_garbage[time] and to_recv and do nothing. This incoming garbage has already been handled
-    self.unverified_garbage[time] = nil
-    to_recv = nil
-  end
+  -- local incoming_json = json.encode(to_recv)
+  -- local unverified_json = json.encode({{}})
+  -- if self.unverified_garbage and self.unverified_garbage[time] then
+    -- unverified_json = json.encode(self.unverified_garbage[time])
+  -- end
+  -- local incoming_matches_unverified = incoming_json == unverified_json
+  -- if incoming_matches_unverified then
+    -- --if self.which == 1 then
+    -- print("unverified garbage and received garbage matched")
+    -- --end
+    -- --clear unverified_garbage[time] and to_recv and do nothing. This incoming garbage has already been handled
+    -- self.unverified_garbage[time] = nil
+    -- to_recv = nil
+  -- end
   
-  for k, v in pairs(self.unverified_garbage) do
-    incoming_matches_unverified = nil
-    print("ERROR: the following predicted garbage never came:\n"..json.encode(unverified_garbage))
-    print("Need to roll back")
-  end
+  -- for k, v in pairs(self.unverified_garbage) do
+    -- incoming_matches_unverified = nil
+    -- print("ERROR: the following predicted garbage never came:\n"..json.encode(unverified_garbage))
+    -- print("Need to roll back")
+  -- end
   
-  if --[[still]] incoming_matches_unverified then
-    --if self.which == 1 then
-    print("no other unverified_garbage")
-    --end
-    --great, it all matches. clear unverified_garbage[time] and to_recv and do nothing. This incoming garbage has already been handled
+  -- if --[[still]] incoming_matches_unverified then
+    -- --if self.which == 1 then
+    -- print("no other unverified_garbage")
+    -- --end
+    -- --great, it all matches. clear unverified_garbage[time] and to_recv and do nothing. This incoming garbage has already been handled
 
-    print("we don't have to roll back because we predicted correctly")
-  else 
-    --if self.which == 1 then
-      print("incoming_json: "..incoming_json)
-      print("unverified_json: "..unverified_json)
-      print("all unverified:  "..json.encode(self.unverified_garbage))
-    --end
+    -- print("we don't have to roll back because we predicted correctly")
+  -- else 
+    -- --if self.which == 1 then
+      -- print("incoming_json: "..incoming_json)
+      -- print("unverified_json: "..unverified_json)
+      -- print("all unverified:  "..json.encode(self.unverified_garbage))
+    -- --end
     if self.CLOCK <= time then -- <= or < ? TODO
-      if incoming_matches_unverified then
-        print("we are behind and guessed correctly")
-      else
+      -- if incoming_matches_unverified then
+        -- print("we are behind and guessed correctly")
+      -- else
         print("adding later_garbage for frame: "..time)
         local garbage = self.later_garbage[time] or {}
         for i=1,#to_recv do
           garbage[#garbage+1] = to_recv[i]
         end
         self.later_garbage[time] = garbage
-      end
+      -- end
     else -- self.CLOCK > time and we predicted wrong
       --do a rollback
       local prev_states = self.prev_states
@@ -2224,7 +2225,7 @@ function Stack.recv_garbage(self, time, to_recv)
         self.in_rollback = nil
       end
     end
-  end
+  -- end
 end
 
 function Stack.check_matches(self)
@@ -2441,6 +2442,7 @@ function Stack.check_matches(self)
 
       self:enqueue_card(false, first_panel_col, first_panel_row, combo_size)
       if self.mode == "vs" then
+        print("Combo at "..self.CLOCK..", Size: "..combo_size)
         self.telegraph:push("combo", combo_size, metal_count,first_panel_col, first_panel_row, self.CLOCK)
       end
       --EnqueueConfetti(first_panel_col<<4+P1StackPosX+4,
