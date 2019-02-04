@@ -1002,6 +1002,9 @@ function Stack.foreign_run(self)
       local guess = ""
       if self.prev_states[self.CLOCK-1] then
         guess = self.prev_states[self.CLOCK-1].input_state 
+        if guess == "Q" then
+          guess = "A" --"Q" is swap. They probably didn't press swap more than 1 frame in a row.
+        end
       else 
         print("assumed A because we couldn't find the previous input state")
         guess = "A"
