@@ -175,8 +175,11 @@ function Stack.mkcpy(self, other)
     if #clone_pool == 0 then
       other = {}
     else
+      -- print("Using clone_pool")
+      -- print ("self.CLOCK: "..self.CLOCK)
       other = clone_pool[#clone_pool]
       clone_pool[#clone_pool] = nil
+      -- print("other.CLOCK: "..other.CLOCK)
     end
   end
   other.do_swap = self.do_swap
@@ -240,6 +243,7 @@ function Stack.mkcpy(self, other)
   other.n_chain_panels = self.n_chain_panels
   other.FRAMECOUNT_RISE = self.FRAMECOUNT_RISE
   other.rise_timer = self.rise_timer
+  other.manual_raise = self.manual_raise
   other.manual_raise_yet = self.manual_raise_yet
   other.prevent_manual_raise = self.prevent_manual_raise
   other.cur_timer = self.cur_timer
@@ -252,13 +256,19 @@ function Stack.mkcpy(self, other)
   other.do_countdown = self.do_countdown
   other.ready_y = self.ready_y
   other.unverified_garbage = deepcpy(self.unverified_garbage)
-  other.next_speculation_time = self.next_speculation_time
+  --other.next_speculation_time = self.next_speculation_time
   other.foreign = self.foreign
   other.combos = deepcpy(self.combos)
   other.chains = deepcpy(self.chains)
   other.guesses = tostring(self.guesses) --not sure if tostring is necessary.  I do need to make sure it passes the value, not the reference to the string.
-  other.top_cur_row = self.top_cur_row
-  other.has_risen = self.has_risen
+  -- other.top_cur_row = self.top_cur_row
+  -- other.has_risen = self.has_risen
+  -- other.rise_lock = self.rise_lock
+  
+  -- if self.displacement ~= 0 then
+    -- other.panel_buffer = self.panel_buffer
+  -- end
+  --other.gpanel_buffer = self.gpanel_buffer
   return other
 end
 
@@ -867,9 +877,6 @@ end
 
 function Stack.prep_first_row(self)
   if self.do_first_row then
-    if self.which == 2 then
-      print("DOING FIRST ROW")
-    end
     self.do_first_row = nil
     self:new_row()
     self.cur_row = self.cur_row-1
@@ -896,12 +903,12 @@ function Stack.foreign_run(self)
     end
   end
   local CLOCK = self.CLOCK
+  print("CLOCK: "..CLOCK)
   if #self.guesses > 0 and #self.input_buffer > 0 then
     --correct our guesses and re-simulate
     local input_buffer = self.input_buffer
     local guesses = self.guesses
-    print("guesses: "..guesses)
-    print("input_buffer: "..input_buffer)
+
     local prev_states = self.prev_states
     if not prev_states then
       error("prev_states is nil")
@@ -909,6 +916,8 @@ function Stack.foreign_run(self)
     local t = CLOCK - #self.guesses
     local next_self = prev_states[t]
     local n_corrections = 0
+    print("self.guesses: "..self.guesses)
+    print("self.input_buffer: "..self.input_buffer)
     --[[
     while next_self and (next_self.prev_active_panels ~= 0 or
         next_self.n_active_panels ~= 0) do
@@ -928,20 +937,20 @@ function Stack.foreign_run(self)
       t = t + 1
       --print("t incremented. now: "..t)
     end
-    self.input_buffer = input_buffer
+    --self.input_buffer = input_buffer
     local last_input = ""
-    while t < CLOCK and #guesses > 0 and #self.input_buffer > 0 do
+    while t < CLOCK and #guesses > 0 and #input_buffer > 0 do
       if self.CLOCK ~= t then
         self:fromcpy(prev_states[t])
       end
       print("incorrect guess, re-simulating...")
       print("setting prev_states["..t.."]")
       self:mkcpy(prev_states[t])
-      self.input_state = string.sub(self.input_buffer,1,1)
+      self.input_state = string.sub(input_buffer,1,1)
       last_input = self.input_state
       self:controls()
       self:PdP()
-      self.input_buffer = string.sub(self.input_buffer,2)
+      input_buffer = string.sub(input_buffer,2)
       guesses = string.sub(guesses,2)
       t = t + 1
       --print("t incremented. now: "..t)
@@ -950,12 +959,12 @@ function Stack.foreign_run(self)
     if n_corrections > 0 then
       print("a correction was made, need to re-simulate remaining frames")
       --we'll assume here we don't have any input buffer remaining
-      if self.input_buffer ~= "" then
+      if input_buffer ~= "" then
         print("We had more input_buffer than we had guesses!")
-        guesses = string.sub(self.input_buffer,1,#guesses)
+        guesses = string.sub(input_buffer,1,#guesses)
       end
       
-      if last_input and last_input ~= "" and last_input ~= string.sub(guesses,1,1) then
+      if last_input and last_input ~= "" then
         local n_guesses = #guesses
         guesses = ""
         for i = 1, n_guesses do
@@ -967,7 +976,7 @@ function Stack.foreign_run(self)
         print("resimulating CLOCK: "..self.CLOCK)
         guessed_input = string.sub(guesses,i,i)
         self.input_state = guessed_input
-        self:mkcpy(prev_states[self.CLOCK])--self:prep_rollback()
+        self:mkcpy(prev_states[self.CLOCK]) --self:prep_rollback()
         print("ran self:mkcpy(prev_states["..self.CLOCK.."]")
         self:controls()
         self:prep_first_row()
@@ -1878,6 +1887,7 @@ function winningPlayer()
 end
 
 function Stack.swap(self)
+  print("swap at "..self.CLOCK)
   local panels = self.panels
   local row = self.cur_row
   local col = self.cur_col

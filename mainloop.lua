@@ -1294,14 +1294,14 @@ function main_net_vs()
     
     print(P1.CLOCK, P2.CLOCK)
     if (P1 and P1.play_to_end) or (P2 and P2.play_to_end) then
-      if not P1.game_over and P1.guesses == "" then
+      if not (P1.game_over and P1.guesses == "") then
         if currently_spectating then
           P1:foreign_run()
         else
           P1:local_run() 
         end
       end
-      if not P2.game_over and P2.guesses == "" then
+      if not (P2.game_over and P2.guesses == "") then
         P2:foreign_run()
       end
     else
