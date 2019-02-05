@@ -750,6 +750,20 @@ function Stack.render_telegraph(self)
             garbage_block.destination_x = render_x + TELEGRAPH_BLOCK_WIDTH * telegraph_to_render.garbage_queue:get_idx_of_garbage(unpack(garbage_block))
             garbage_block.destination_y = garbage_block.destination_y or telegraph_to_render.pos_y - TELEGRAPH_HEIGHT - TELEGRAPH_PADDING 
             
+            if not garbage_block.x or not garbage_block.y then
+              garbage_block.x = (attack.origin_col-1) * 16 +telegraph_to_render.sender.pos_x
+              garbage_block.y = (11-attack.origin_row) * 16 + telegraph_to_render.sender.pos_y + telegraph_to_render.sender.displacement - card_animation[#card_animation]
+              garbage_block.origin_x = garbage_block.x
+              garbage_block.origin_y = garbage_block.y
+              garbage_block.direction = garbage_block.direction or sign(garbage_block.destination_x - garbage_block.origin_x) --should give -1 for left, or 1 for right
+              
+              for frame=1, bound(1, frames_since_earned - #card_animation, #card_animation) do
+                print("YYYYYYYYYYYY")
+                garbage_block.x = garbage_block.x + telegraph_attack_animation[garbage_block.direction][frame].dx
+                garbage_block.y = garbage_block.y + telegraph_attack_animation[garbage_block.direction][frame].dy
+              end
+            end
+            
             local distance_to_destination = math.sqrt(math.pow(garbage_block.x-garbage_block.destination_x,2)+math.pow(garbage_block.y-garbage_block.destination_y,2))
             if frames_since_earned == #card_animation + #telegraph_attack_animation_speed then
               garbage_block.speed = distance_to_destination / (GARBAGE_TRANSIT_TIME-frames_since_earned)
