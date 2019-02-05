@@ -265,9 +265,7 @@ function Stack.mkcpy(self, other)
   -- other.has_risen = self.has_risen
   -- other.rise_lock = self.rise_lock
   
-  -- if self.displacement ~= 0 then
-    -- other.panel_buffer = self.panel_buffer
-  -- end
+  other.prev_panel_buffer = self.prev_panel_buffer
   --other.gpanel_buffer = self.gpanel_buffer
   other.last_new_row = self.last_new_row
   return other
@@ -941,14 +939,12 @@ function Stack.foreign_run(self)
     --self.input_buffer = input_buffer
     local last_input = ""
     while t < CLOCK and #guesses > 0 and #input_buffer > 0 do
-      local last_new_row = self.last_new_row
+      local temp_panel_buffer = self.prev_panel_buffer
       if self.CLOCK ~= t then
         self:fromcpy(prev_states[t])
-        -- if last_new_row and self.last_new_row and last_new_row ~= self.last_new_row then
-          -- --put the last_new_row back in the panel buffer if necessary
-          -- --TODO: maybe we need to do this more than once sometimes?  If we are rolling back long enough for two new rows to have been created?
-          -- self.panel_buffer = last_new_row..self.panel_buffer
-        -- end
+        -- if temp_panel_buffer and self.prev_panel_buffer and self.prev_panel_buffer ~= temp_panel_buffer then
+          -- self.panel_buffer = self.prev_panel_buffer
+        -- end --TODO: do with gpanel_buffer too?
       end
       print("incorrect guess, re-simulating...")
       print("setting prev_states["..t.."]")
@@ -2657,7 +2653,7 @@ function Stack.new_row(self)
     panel.color = this_panel_color+0
     panel.state = "dimmed"
   end
-  self.last_new_row = string.sub(self.panel_buffer,1,6)
+  self.prev_panel_buffer = self.panel_buffer
   self.panel_buffer = string.sub(self.panel_buffer,7)
   if string.len(self.panel_buffer) <= 10*self.width then
     ask_for_panels(string.sub(self.panel_buffer,-6))
