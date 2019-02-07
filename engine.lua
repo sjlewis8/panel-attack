@@ -266,6 +266,8 @@ function Stack.mkcpy(self, other)
   -- other.rise_lock = self.rise_lock
   
   other.prev_panel_buffer = self.prev_panel_buffer
+  --prev_panel_buffer contains the panels that were used to make the last new row
+  --string.sub(self.prev_panel_buffer,7) it to get what the panel_buffer was at that frame
   --other.gpanel_buffer = self.gpanel_buffer
   other.last_new_row = self.last_new_row
   return other
@@ -939,15 +941,41 @@ function Stack.foreign_run(self)
     --self.input_buffer = input_buffer
     local last_input = ""
     while t < CLOCK and #guesses > 0 and #input_buffer > 0 do
-      local temp_panel_buffer = self.prev_panel_buffer
-      if self.CLOCK ~= t then
-        self:fromcpy(prev_states[t])
-        -- if temp_panel_buffer and self.prev_panel_buffer and self.prev_panel_buffer ~= temp_panel_buffer then
-          -- self.panel_buffer = self.prev_panel_buffer
-        -- end --TODO: do with gpanel_buffer too?
-      end
       print("incorrect guess, re-simulating...")
       print("setting prev_states["..t.."]")
+      local future_prev_panel_buffer = self.prev_panel_buffer
+      local future_panel_buffer = self.panel_buffer
+      local new_panels = self.panel_buffer
+      if self.CLOCK ~= t then
+        self:fromcpy(prev_states[t])
+        --if future_prev_panel_buffer and self.prev_panel_buffer and self.prev_panel_buffer ~= future_prev_panel_buffer then
+          print("restoring panel buffer")
+          print("was "..string.sub(self.prev_panel_buffer,7))
+          -- local new_panels = ""
+          -- if string.sub(future_prev_panel_buffer,1,6) == string.sub(self.prev_panel_buffer,7,12) then
+            -- print("retaining added panel buffer from server")
+            -- new_panels = string.sub(new_panels,#future_prev_panel_buffer+1,-1)
+          -- end
+          local resolved = false
+          local older_panels = ""
+          local i = 7
+          while not resolved and i < #self.prev_panel_buffer do
+            if string.sub(self.prev_panel_buffer, i, i+5) == string.sub(future_prev_panel_buffer, 1, 6) then
+              resolved = true
+            else
+              older_panels = older_panels..string.sub(self.prev_panel_buffer, i, i+5)
+              --I think this will only happen if we roll back far enough that 2 new lines had been generated
+              print("older_panels is now: "..older_panels)
+            end
+            i = i+6
+          end
+          if i > #self.prev_panel_buffer then
+            error("we couldn't line up the panel_buffers in a rollback")
+          end
+          self.panel_buffer = older_panels..string.sub(future_prev_panel_buffer,1,6)..future_panel_buffer--..new_panels
+          print("now "..self.panel_buffer)
+        --end --TODO: do with gpanel_buffer too?
+      end
       self:mkcpy(prev_states[t])
       self.input_state = string.sub(input_buffer,1,1)
       last_input = self.input_state
@@ -1036,6 +1064,10 @@ local d_row = {up=1, down=-1, left=0, right=0}
 
 -- The engine routine.
 function Stack.PdP(self)
+  if self.which == 2 then
+    print("panel_buffer = "..self.panel_buffer)
+  end
+  
   -- Update GFX items (and remove them if neccessary)
   for key, gfx_item in pairs(self.gfx) do
     gfx_item["age"] = gfx_item["age"] + 1
@@ -2654,6 +2686,7 @@ function Stack.new_row(self)
     panel.state = "dimmed"
   end
   self.prev_panel_buffer = self.panel_buffer
+  print("Player "..self.which.." used "..string.sub(self.panel_buffer,1,6))
   self.panel_buffer = string.sub(self.panel_buffer,7)
   if string.len(self.panel_buffer) <= 10*self.width then
     ask_for_panels(string.sub(self.panel_buffer,-6))
