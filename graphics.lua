@@ -759,7 +759,7 @@ function Stack.render_telegraph(self)
               garbage_block.origin_y = garbage_block.y
               garbage_block.direction = garbage_block.direction or sign(garbage_block.destination_x - garbage_block.origin_x) --should give -1 for left, or 1 for right
               
-              for frame=1, bound(1, frames_since_earned - #card_animation, #card_animation) do
+              for frame=1, bound(1, frames_since_earned - #card_animation, #telegraph_attack_animation[garbage_block.direction]) do
                 print("YYYYYYYYYYYY")
                 garbage_block.x = garbage_block.x + telegraph_attack_animation[garbage_block.direction][frame].dx
                 garbage_block.y = garbage_block.y + telegraph_attack_animation[garbage_block.direction][frame].dy

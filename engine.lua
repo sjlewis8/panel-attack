@@ -915,8 +915,8 @@ function Stack.foreign_run(self)
     local t = CLOCK - #self.guesses
     local next_self = prev_states[t]
     local n_corrections = 0
-    print("self.guesses: "..self.guesses)
-    print("self.input_buffer: "..self.input_buffer)
+    --print("self.guesses: "..self.guesses)
+    --print("self.input_buffer: "..self.input_buffer)
     --[[
     while next_self and (next_self.prev_active_panels ~= 0 or
         next_self.n_active_panels ~= 0) do
@@ -928,7 +928,7 @@ function Stack.foreign_run(self)
     while t < CLOCK and #guesses > 0 and #input_buffer > 0 and  string.sub(guesses,1,1) == string.sub(input_buffer,1,1) do
       --we guessed the correct input, move past this state
       --there is no need to correct it
-      print("correct guess")
+      --print("correct guess")
       next_self = prev_states[t]
       next_self.guesses = nil
       input_buffer = string.sub(input_buffer,2)
@@ -939,36 +939,49 @@ function Stack.foreign_run(self)
     --self.input_buffer = input_buffer
     local last_input = ""
     while t < CLOCK and #guesses > 0 and #input_buffer > 0 do
-      print("incorrect guess, re-simulating...")
-      print("setting prev_states["..t.."]")
+      --print("incorrect guess, re-simulating...")
+      --print("setting prev_states["..t.."]")
       local future_panel_buffer = self.panel_buffer
       local new_panels = self.panel_buffer
       if self.CLOCK ~= t then
         self:fromcpy(prev_states[t])
-          print("restoring panel buffer")
-          print("was "..self.panel_buffer)
+        print("restoring panel buffer")
+        print("was "..self.panel_buffer)
 
-          local resolved = false
-          local older_panels = ""
-          local i = 1
-          while not resolved and i < #self.panel_buffer do
-            print("self.panel_buffer: "..self.panel_buffer)
-            print("future_panel_buffer: "..future_panel_buffer)
-            if string.sub(self.panel_buffer, i, i+5) == string.sub(future_panel_buffer, 1, 6) then
-              resolved = true
-            else
-              older_panels = older_panels..string.sub(self.panel_buffer, i, i+5)
-              --I think this will only happen if we roll back far enough that 2 new lines had been generated
-              print("older_panels is now: "..older_panels)
-            end
-            i = i+6
+        local resolved = false
+        local older_panels = ""
+        local i = 1
+        while not resolved and i < #self.panel_buffer do
+          print("self.panel_buffer: "..self.panel_buffer)
+          print("future_panel_buffer: "..future_panel_buffer)
+          if string.sub(self.panel_buffer, i, i+5) == string.sub(future_panel_buffer, 1, 6) then
+            resolved = true
+          else
+            older_panels = older_panels..string.sub(self.panel_buffer, i, i+5)
+            --I think this will only happen if we roll back far enough that 2 new lines had been generated
+            print("older_panels is now: "..older_panels)
           end
-          if i > #self.panel_buffer then
-            error("we couldn't line up the panel_buffers in a rollback")
+          i = i+6
+        end
+        if i > #self.panel_buffer then
+          error("we couldn't line up the panel_buffers in a rollback")
+        else
+          --i now represents the number of panels into self.panel_buffer the future_panel_buffer is
+          --or in other words, how many panels in the current buffer were used by new rows between now and the future state we are rolling back from, plus 1.
+          if string.sub(future_panel_buffer,i):len() > #self.panel_buffer then
+            print("saving extra panels from future_panel_buffer")
+            print("self.panel_buffer before: ")
+            print(self.panel_buffer)
+            print("future_panel_buffer: ")
+            print(future_panel_buffer)
+            self.panel_buffer = self.panel_buffer..string.sub(future_panel_buffer,i + #self.panel_buffer)
+            print("self.panel_buffer after: ")
+            print(self.panel_buffer)
+          else
+            print("no extra panels to save into panel_buffer")
           end
-          self.panel_buffer = --[[older_panels..]]string.sub(future_panel_buffer,1,6)..future_panel_buffer--..new_panels
-          print("now "..self.panel_buffer)
-        --end --TODO: do with gpanel_buffer too?
+        end
+      --end --TODO: do with gpanel_buffer too?
       end
       self:mkcpy(prev_states[t])
       self.input_state = string.sub(input_buffer,1,1)
@@ -1039,7 +1052,7 @@ function Stack.foreign_run(self)
         error("we've made more than 120 guesses without inputs from the other side")
       end
       self.input_state = guess
-      print("guessing input was "..guess)
+      --print("guessing input was "..guess)
     end
     self:prep_rollback()
     self:controls()
