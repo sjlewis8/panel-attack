@@ -479,6 +479,7 @@ function Stack.render(self)
       end
       if config.debug_mode and mx >= draw_x and mx < draw_x + 16 and
           my >= draw_y and my < draw_y + 16 then
+        print("setting mouse_panel")
         mouse_panel = {row, col, panel}
         draw(IMG_panels[4][1], draw_x+16/3, draw_y+16/3, 0, 0.33333333, 0.3333333)
       end

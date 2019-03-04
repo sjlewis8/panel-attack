@@ -902,7 +902,7 @@ function Stack.foreign_run(self)
     end
   end
   local CLOCK = self.CLOCK
-  print("CLOCK: "..CLOCK)
+  --print("CLOCK: "..CLOCK)
   if #self.guesses > 0 and #self.input_buffer > 0 then
     --correct our guesses and re-simulate
     local input_buffer = self.input_buffer
@@ -945,15 +945,12 @@ function Stack.foreign_run(self)
       local new_panels = self.panel_buffer
       if self.CLOCK ~= t then
         self:fromcpy(prev_states[t])
-        print("restoring panel buffer")
-        print("was "..self.panel_buffer)
-
         local resolved = false
         local older_panels = ""
         local i = 1
         while not resolved and i < #self.panel_buffer do
-          print("self.panel_buffer: "..self.panel_buffer)
-          print("future_panel_buffer: "..future_panel_buffer)
+          --print("self.panel_buffer: "..self.panel_buffer)
+          --print("future_panel_buffer: "..future_panel_buffer)
           if string.sub(self.panel_buffer, i, i+5) == string.sub(future_panel_buffer, 1, 6) then
             resolved = true
           else
@@ -968,15 +965,16 @@ function Stack.foreign_run(self)
         else
           --i now represents the number of panels into self.panel_buffer the future_panel_buffer is
           --or in other words, how many panels in the current buffer were used by new rows between now and the future state we are rolling back from, plus 1.
+          
           if string.sub(future_panel_buffer,i):len() > #self.panel_buffer then
             print("saving extra panels from future_panel_buffer")
-            print("self.panel_buffer before: ")
-            print(self.panel_buffer)
-            print("future_panel_buffer: ")
-            print(future_panel_buffer)
+            -- print("self.panel_buffer before: ")
+            -- print(self.panel_buffer)
+            -- print("future_panel_buffer: ")
+            -- print(future_panel_buffer)
             self.panel_buffer = self.panel_buffer..string.sub(future_panel_buffer,i + #self.panel_buffer)
-            print("self.panel_buffer after: ")
-            print(self.panel_buffer)
+            -- print("self.panel_buffer after: ")
+            -- print(self.panel_buffer)
           else
             print("no extra panels to save into panel_buffer")
           end

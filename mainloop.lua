@@ -1535,6 +1535,7 @@ function main_replay_vs()
       for k,v in spairs(mouse_panel[3]) do
         str = str .. "\n".. k .. ": "..tostring(v)
       end
+      print("gprinting mouse_panel")
       gprint(str, 350, 400)
     end
     wait()
