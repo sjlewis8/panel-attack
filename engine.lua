@@ -206,7 +206,7 @@ function Stack.mkcpy(self, other)
   local width = self.width or other.width
   local height_to_cpy = #self.panels
   other.panels = other.panels or {}
-  for i=1,height_to_cpy do
+  for i=0,height_to_cpy do
     if other.panels[i] == nil then
       other.panels[i] = {}
       for j=1,width do
