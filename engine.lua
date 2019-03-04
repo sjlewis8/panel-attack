@@ -2270,6 +2270,7 @@ function Stack.recv_garbage(self, time, to_recv)
         self.garbage_q:push(to_recv)
 
         for t=time,CLOCK-1 do
+          print("in recv_garbage rollback catchup loop")
           self.input_state = prev_states[t].input_state
           self:mkcpy(prev_states[t])
           self:controls()
