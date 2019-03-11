@@ -196,6 +196,7 @@ function Stack.mkcpy(self, other)
 
   end--]]
   other.garbage_q = self.garbage_q:mkcpy()
+  other.later_garbage = deepcpy(self.later_garbage)
   --other.garbage_to_send = deepcpy(self.garbage_to_send)
   other.telegraph = self.telegraph:mkcpy()
   if self.incoming_telegraph then
