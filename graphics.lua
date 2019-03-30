@@ -1,48 +1,8 @@
---int Font_NumRed;
---int Font_NumBlue;
-
---int P1ScoreDisplay;
---int P1ScoreRender;
---int P1ScoreDigits[5];
-
---int GameTimeDisplay;
---int GameTimeDisplayPosX;
---int GameTimeDisplayPosY;
---int GameTimeRender;
---int GameTimeDigits[7];
-
---int Graphics_Ready321;
-
---int P1SpeedLVDisplay;
---int P1SpeedLVRender;
---int P1SpeedLVDigits[3];
---int MrStopState;
---int MrStopTimer;
---int MrStopAni[25];
-
---int Graphics_level;
---int Graphics_MrStop[2];
---int Graphics_Difficulty[5];
-
---int NumConfettis;
---#define MAXCONFETTIS     8
-
---int Confettis[8][5];
---#define CONFETTI_TIMER   0
---#define CONFETTI_RADIUS  1
---#define CONFETTI_ANGLE   2
---#define CONFETTI_X       3
---#define CONFETTI_Y       4
---int ConfettiAni[48];
---int ConfettiBuf[6][2];
---#define CONFETTI_STARTTIMER   40
---#define CONFETTI_STARTRADIUS 150
 require("input")
 require("util")
 
 local floor = math.floor
 local ceil = math.ceil
-local garbage_match_time = #garbage_bounce_table
 
 function load_img(path_and_name)
   local img
@@ -55,14 +15,6 @@ function load_img(path_and_name)
   else
     img = love.image.newImageData("assets/"..default_assets_dir.."/"..path_and_name)
   end
-  -- local w, h = img:getWidth(), img:getHeight()
-  -- local wp = math.pow(2, math.ceil(math.log(w)/math.log(2)))
-  -- local hp = math.pow(2, math.ceil(math.log(h)/math.log(2)))
-  -- if wp ~= w or hp ~= h then
-    -- local padded = love.image.newImageData(wp, hp)
-    -- padded:paste(img, 0, 0)
-    -- img = padded
-  -- end
   local ret = love.graphics.newImage(img)
   ret:setFilter("nearest","nearest")
   return ret
@@ -114,12 +66,17 @@ function grectangle(mode, x, y, w, h)
 end
 
 function gprint(str, x, y)
+  x = x or 0
+  y = y or 0
+  set_color(0, 0, 0, 1)
+  gfx_q:push({love.graphics.print, {str, x+1, y+1}})
+  set_color(1, 1, 1, 1)
   gfx_q:push({love.graphics.print, {str, x, y}})
 end
 
 local _r, _g, _b, _a
 function set_color(r, g, b, a)
-  a = a or 255
+  a = a or 1
   -- only do it if this color isn't the same as the previous one...
   if _r~=r or _g~=g or _b~=b or _a~=a then
       _r,_g,_b,_a = r,g,b,a
@@ -128,19 +85,6 @@ function set_color(r, g, b, a)
 end
 
 function graphics_init()
-  --Font_NumRed=LoadImage("graphics\Font_NumRed.bmp");
-  --Font_NumBlue=LoadImage("graphics\Font_NumBlue.bmp");
-
-  --GameTimeDisplay=NewImage(64,16);
-  --P1ScoreDisplay=NewImage(40,16);
-  --P1SpeedLVDisplay=NewImage(48,48);
-
-  --Graphics_Ready321=LoadImage("graphics\Ready321.bmp");
-  --Graphics_TIME=LoadImage("graphics\time.bmp");
-  --Graphics_level=LoadImage("graphics\level.bmp");
-  --for(a=0;a<2;a++) Graphics_MrStop[a]=LoadImage("graphics\MrStop"+str(a)+".bmp");
-  --for(a=0;a<5;a++) Graphics_Difficulty[a]=LoadImage("graphics\diffic"+str(a)+".bmp");
-
   IMG_panels = {}
   for i=1,8 do
     IMG_panels[i]={}
@@ -242,7 +186,7 @@ function graphics_init()
     IMG_cards[true][i] = load_img("chain00.png")
   end
   IMG_character_icons = {}
-  for k,name in ipairs(characters) do
+  for _, name in ipairs(characters) do
     IMG_character_icons[name] = load_img(""..name.."/icon.png")
   end
   local MAX_SUPPORTED_PLAYERS = 2
@@ -258,7 +202,7 @@ function graphics_init()
     IMG_char_sel_cursor_halves.left[player_num] = {}
     for position_num=1,2 do
       local cur_width, cur_height = IMG_char_sel_cursors[player_num][position_num]:getDimensions()
-      local half_width, half_height = cur_width/2, cur_height/2
+      local half_width, half_height = cur_width/2, cur_height/2 -- TODO: is these unused vars an error ??? -Endu
       IMG_char_sel_cursor_halves["left"][player_num][position_num] = love.graphics.newQuad(0,0,half_width,cur_height,cur_width, cur_height)
     end
     IMG_char_sel_cursor_halves.right[player_num] = {}
@@ -269,11 +213,9 @@ function graphics_init()
     end
   end
   character_display_names = {}
-  for k, original_name in ipairs(characters) do
+  for _, original_name in ipairs(characters) do
     name_txt_file = love.filesystem.newFile("assets/"..config.assets_dir.."/"..original_name.."/name.txt")
-    --print(original_name)
     open_success, err = name_txt_file:open("r")
-    --if err then print(err) end
     local display_name = name_txt_file:read(name_txt_file:getSize())
     if display_name then
       character_display_names[original_name] = display_name
@@ -289,22 +231,6 @@ function graphics_init()
   for k,v in pairs(character_display_names) do
     character_display_names_to_original_names[v] = k
   end
-  --for(a=0;a<2;a++) MrStopAni[a]=5;
-  --for(a=2;a<5;a++) MrStopAni[a]=8;
-  --for(a=5;a<25;a++) MrStopAni[a]=16;
-
-  --[[file=FileOpen("graphics\timeslide.ani",FILE_READ);
-  for(a=1;a<65;a++)
-  {
-    TimeSlideAni[a] = FileReadByte(file);
-  }
-  FileClose(file);
-  file=FileOpen("graphics\confetti.ani",FILE_READ);
-  for(a=0;a<40;a++)
-  {
-    ConfettiAni[a] = FileReadByte(file);
-  }
-  FileClose(file);--]]
 end
 
 function Stack.update_cards(self)
@@ -329,12 +255,6 @@ function Stack.draw_cards(self)
       local draw_y = (11-card.y) * 16 + self.pos_y + self.displacement
           - card_animation[card.frame]
       draw(IMG_cards[card.chain][card.n], draw_x, draw_y)
-  --    card.frame = card.frame + 1
-  --    if(card_animation[card.frame]==nil) then
-  --      self.card_q:pop()
-  --    end
-    else
-  --    card.frame = card.frame + 1
     end
   end
 end
@@ -539,13 +459,6 @@ function Stack.render(self)
     if not config.debug_mode then
       gprint(join_community_msg or "", 330, 560)
     end
-    --gprint("Player"..self.player_number, self.score_x,265)
-    --gprint("Panel buffer: "..#self.panel_buffer, self.score_x, 190)
-    --[[local danger = {}
-    for i=1,6 do
-      danger[i] = self.panels[12][i]:dangerous()
-    end
-    gprint("Danger: "..table.concat(map(function(x) if x then return "1" else return "0" end end, danger)), self.score_x, 205)--]]
   end
   self:draw_cards()
   self:render_cursor()
@@ -564,74 +477,6 @@ function scale_letterbox(width, height, w_ratio, h_ratio)
   local scaled_width = w_ratio * height / h_ratio
   return (width - scaled_width) / 2, 0, scaled_width, height
 end
-
---[[
-void EnqueueConfetti(int x, int y)
-{
-  int b, c;
-  if(NumConfettis==MAXCONFETTIS)
-  {
-    for(c=0;c<NumConfettis;c++)
-    {
-      for(b=0;b<5;b++) Confettis[c][b]=Confettis[c+1][b];
-    }
-    NumConfettis--;
-  }
-  Confettis[NumConfettis][CONFETTI_TIMER]=CONFETTI_STARTTIMER;
-  Confettis[NumConfettis][CONFETTI_RADIUS]=CONFETTI_STARTRADIUS;
-  Confettis[NumConfettis][CONFETTI_ANGLE]=0;
-  Confettis[NumConfettis][CONFETTI_X]=x;
-  Confettis[NumConfettis][CONFETTI_Y]=y;
-  NumConfettis++;
-}
-
-void Render_Confetti()
-{
-  int a, b, c;
-  int r, an, t;
-
-  for(a=0;a<NumConfettis;a++)
-  {
-    t=Confettis[a][CONFETTI_TIMER]-1;
-    r=Confettis[a][CONFETTI_RADIUS]-ConfettiAni[t];
-    an=Confettis[a][CONFETTI_ANGLE]-6;
-
-    ConfettiBuf[0][0]=(r*cos(an))>>16;
-    ConfettiBuf[0][1]=(r*sin(an))>>16;
-    ConfettiBuf[1][0]=(r*cos(an+60))>>16;
-    ConfettiBuf[1][1]=(r*sin(an+60))>>16;
-    ConfettiBuf[2][0]=(r*cos(an+120))>>16;
-    ConfettiBuf[2][1]=(r*sin(an+120))>>16;
-    for(c=0;c<3;c++)
-    {
-      ConfettiBuf[c+3][0]=0-ConfettiBuf[c][0];
-      ConfettiBuf[c+3][1]=0-ConfettiBuf[c][1];
-    }
-    for(c=0;c<6;c++)
-    {
-      ConfettiBuf[c][0]+=Confettis[a][CONFETTI_X];
-      ConfettiBuf[c][1]+=Confettis[a][CONFETTI_Y];
-
-      TBlit(ConfettiBuf[c][0],ConfettiBuf[c][1],Graphics_Confetti,screen);
-    }
-
-    if(!t)
-    {
-      for(c=a;c<NumConfettis;c++)
-      {
-        for(b=0;b<5;b++) Confettis[c][b]=Confettis[c+1][b];
-      }
-      NumConfettis--;
-      if(a~=(NumConfettis-1)) a--;
-    }
-    else
-    {
-      Confettis[a][CONFETTI_TIMER]=t;
-      Confettis[a][CONFETTI_RADIUS]=r;
-      Confettis[a][CONFETTI_ANGLE]=an;
-    }
-  }
-}--]]
 
 function Stack.render_cursor(self)
   local shake_idx = #shake_arr - self.shake_time
@@ -981,3 +826,4 @@ void Render_Info_1P()
 
   TBlit(224,95,P1SpeedLVDisplay,screen);
 }--]]
+
