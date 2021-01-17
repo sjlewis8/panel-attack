@@ -101,7 +101,7 @@ function make_gpanels(ncolors, prev_panels)
       local nogood,color = true
       while nogood do
         color = tostring(math.random(1,ncolors))
-        nogood = (y>0 and color == string.sub(ret,-1,-1)) or
+        nogood = (y>0 and color == string.sub(ret,-1,-1)) or --negative values in substring mean from the end of the string
           color == string.sub(ret,-6,-6)
       end
       ret = ret..color

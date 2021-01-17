@@ -241,3 +241,92 @@ function get_directory_contents(path)
 
   return results
 end
+
+function gprintQueue(q, x, y)
+	local new_y = y
+
+	for i = 1, q:len() do
+		local content = q:pop()
+		gprint(content, x, new_y)
+		new_y = new_y + 12
+		q:push(content)
+	end
+end
+
+--from https://docs.coronalabs.com/tutorial/data/outputTable/index.html
+function printTable( t )
+    local printTable_cache = {}
+ 
+    local function sub_printTable( t, indent )
+ 
+        if ( printTable_cache[tostring(t)] ) then
+            print( indent .. "*" .. tostring(t) )
+        else
+            printTable_cache[tostring(t)] = true
+            if ( type( t ) == "table" ) then
+                for pos,val in pairs( t ) do
+                    if ( type(val) == "table" ) then
+                        print( indent .. "[" .. pos .. "] => " .. tostring( t ).. " {" )
+                        sub_printTable( val, indent .. string.rep( " ", string.len(pos)+8 ) )
+                        print( indent .. string.rep( " ", string.len(pos)+6 ) .. "}" )
+                    elseif ( type(val) == "string" ) then
+                        print( indent .. "[" .. pos .. '] => "' .. val .. '"' )
+                    else
+                        print( indent .. "[" .. pos .. "] => " .. tostring(val) )
+                    end
+                end
+            else
+                print( indent..tostring(t) )
+            end
+        end
+    end
+ 
+    if ( type(t) == "table" ) then
+        print( tostring(t) .. " {" )
+        sub_printTable( t, "  " )
+        print( "}" )
+    else
+        sub_printTable( t, "  " )
+    end
+end
+
+function gprintTable( t )
+    local printTable_cache = {}
+	local gprintTable_y = 0
+	oldprint = print
+	print = function(param)  gprint(param, 0, gprintTable_y) gprintTable_y = gprintTable_y + 12 end
+    local function sub_printTable( t, indent )
+ 
+        if ( printTable_cache[tostring(t)] ) then
+            print( indent .. "*" .. tostring(t) )
+        else
+            printTable_cache[tostring(t)] = true
+            if ( type( t ) == "table" ) then
+                for pos,val in pairs( t ) do
+                    if ( type(val) == "table" ) then
+                        print( indent .. "[" .. pos .. "] => " .. tostring( t ).. " {" )
+                        sub_printTable( val, indent .. string.rep( " ", string.len(pos)+8 ) )
+                        print( indent .. string.rep( " ", string.len(pos)+6 ) .. "}" )
+                    elseif ( type(val) == "string" ) then
+                        print( indent .. "[" .. pos .. '] => "' .. val .. '"' )
+                    else
+                        print( indent .. "[" .. pos .. "] => " .. tostring(val) )
+                    end
+                end
+            else
+                print( indent..tostring(t) )
+            end
+        end
+    end
+ 
+    if ( type(t) == "table" ) then
+        print( tostring(t) .. " {" )
+        sub_printTable( t, "  " )
+        print( "}" )
+    else
+        sub_printTable( t, "  " )
+    end
+	
+	gprintTable_y = 0
+	print = oldprint
+end

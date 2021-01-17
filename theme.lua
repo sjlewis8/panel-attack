@@ -48,6 +48,9 @@ function Theme.graphics_init(self)
 
   self.images.bg_overlay = load_theme_img("background/bg_overlay")
   self.images.fg_overlay = load_theme_img("background/fg_overlay")
+  
+  --d
+  self.images.rr_lobby = load_theme_img("background/lobby_bg_final")
 
   self.images.pause = load_theme_img("pause")
 
@@ -111,7 +114,7 @@ function Theme.graphics_init(self)
     self.images.IMG_cards[true][i] = self.images.IMG_cards[true][14]
   end
 
-  local MAX_SUPPORTED_PLAYERS = 2
+  local MAX_SUPPORTED_PLAYERS = 4
   self.images.IMG_char_sel_cursors = {}
   self.images.IMG_players = {}
   self.images.IMG_cursor = {}
@@ -120,7 +123,7 @@ function Theme.graphics_init(self)
     self.images.IMG_cursor[player_num] = load_theme_img("p"..player_num.."_cursor")
     self.images.IMG_char_sel_cursors[player_num] = {}
     for position_num=1,2 do
-      self.images.IMG_char_sel_cursors[player_num][position_num] = load_theme_img("p"..player_num.."_select_screen_cursor"..position_num)
+      self.images.IMG_char_sel_cursors[player_num][position_num] = load_theme_img("p"..(player_num).."_select_screen_cursor"..position_num)
     end
   end
 

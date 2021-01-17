@@ -59,6 +59,8 @@ function love.update(dt)
   if not status then
     error(err..'\n'..debug.traceback(mainloop))
   end
+  
+
   this_frame_messages = {}
 
   update_music()
@@ -97,8 +99,10 @@ function love.draw()
   -- draw background and its overlay
   local scale = canvas_width/math.max(background:getWidth(),background:getHeight()) -- keep image ratio
   menu_drawf(background, canvas_width/2, canvas_height/2, "center", "center", 0, scale, scale )
+  
   if background_overlay then
     local scale = canvas_width/math.max(background_overlay:getWidth(),background_overlay:getHeight()) -- keep image ratio
     menu_drawf(background_overlay, canvas_width/2, canvas_height/2, "center", "center", 0, scale, scale )
   end
+  
 end

@@ -14,7 +14,9 @@ local GARBAGE_TRANSIT_TIME = 90
 local clone_pool = {}
 local current_music_is_casual = false -- must be false so that casual music start playing
 
-Stack = class(function(s, which, mode, panels_dir, speed, difficulty, player_number)
+--d
+Stack = class(function(s, which, mode, panels_dir, speed, difficulty, player_number, isLPlayer)
+	s.isLPlayer = isLPlayer or false --for things that should only be performed once for all the characters (like the startup blips)
     s.character = config.character
     s.max_health = 1
     s.panels_dir = panels_dir or config.panels
@@ -723,12 +725,13 @@ function Stack.PdP(self)
         self.starting_cur_row = nil
         self.starting_cur_col = nil
         self.countdown_CLOCK = nil
-        if self.which == 1 then
+
+        if self.which == 1 or self.isLPlayer then
           SFX_Go_Play=1
         end
-      elseif self.countdown_timer and self.countdown_timer % 60 == 0 and self.which == 1 then
+      elseif self.countdown_timer and self.countdown_timer % 60 == 0 and (self.which == 1 or self.isLPlayer) then
         --play beep for timer dropping to next second in 3-2-1 countdown
-        if self.which == 1 then
+        if self.which == 1 or self.isLPlayer then
           SFX_Countdown_Play=1
         end
       end

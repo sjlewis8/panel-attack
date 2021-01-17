@@ -49,6 +49,13 @@ SFX_GameOver_Play = 0
 global_my_state = nil
 global_op_state = nil
 
+-- round robin globals
+rr_matchup = "" -- "Winner" (winner stays) or "Even" 
+rr_win_count = {} -- number of each player's wins
+global_states = {}  
+isRRSetup = false 
+player_order = Queue() 
+
 -- Warning messages
 display_warning_message = false
 

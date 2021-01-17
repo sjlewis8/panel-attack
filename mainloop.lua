@@ -100,7 +100,7 @@ function variable_step(f)
   end
 end
 
-do
+do --main_select_mode()
   local active_idx = 1
   function main_select_mode()
     currently_spectating = false
@@ -141,7 +141,8 @@ do
         {loc("mm_configure"), main_config_input},
         {loc("mm_set_name"), main_set_name},
         {loc("mm_options"), options.main},
-        {loc("mm_music_test"), main_music_test}
+        {loc("mm_music_test"), main_music_test},
+		{"Round Robin", round_robin_setup}
     }
     if love.graphics.getSupported("canvas") then
       items[#items+1] = {loc("mm_fullscreen", "(LAlt+Enter)"), fullscreen}
@@ -201,6 +202,17 @@ do
       end
     end
   end
+end
+
+function round_robin_setup()
+
+  currently_spectating = false
+  my_name = config.name or "Player 1"
+  op_name = "Player 2"
+  op_state = nil
+  select_screen.character_select_mode = "round_robin"
+
+  return select_screen.main
 end
 
 function main_select_speed_99(next_func, ...)
@@ -304,6 +316,63 @@ local function pick_use_music_from()
   else
     current_use_music_from = percent == 1 and "stage" or "characters"
   end
+end
+
+--shamelessly copied from below (main_local_vs())
+function rr_local_vs()
+
+  use_current_stage()
+  pick_use_music_from()
+  local end_text = nil
+
+  while true do 	
+    if game_is_paused then
+      draw_pause()
+    else
+      P1:render()
+      P2:render()
+    end
+	
+    wait()
+    variable_step(function()
+        if not P1.game_over and not P2.game_over then
+          P1:local_run()
+          P2:local_run()
+          P1:handle_pause()
+          P2:handle_pause()
+		  
+		  --print the current player over their panel
+		  gprint("Player "..tostring(P1.which), (P1.pos_x+35)*GFX_SCALE, (P1.pos_y-16)*GFX_SCALE, black, 2)
+		  gprint("Player "..tostring(P2.which), (P2.pos_x+35)*GFX_SCALE, (P2.pos_y-16)*GFX_SCALE, black, 2)		  
+        end
+    end)
+
+    local winSFX = nil
+	
+	--tie
+    if P1.game_over and P2.game_over and P1.CLOCK == P2.CLOCK then
+      end_text = loc("ss_draw")
+	  rr_win_count.last_winner = nil
+	--P2 wins  
+    elseif P1.game_over and P1.CLOCK <= P2.CLOCK then
+      winSFX = P2:pick_win_sfx()
+	  rr_win_count[P2.which] = rr_win_count[P2.which] + 1 
+      end_text = "Player "..tostring(P2.which).." wins"
+	  rr_win_count.last_winner = P2.which --records the most recent winner
+	 --P1 wins 
+    elseif P2.game_over and P2.CLOCK <= P1.CLOCK then
+      winSFX = P1:pick_win_sfx()
+	  rr_win_count[P1.which] = rr_win_count[P1.which] + 1 
+      end_text = "Player "..tostring(P1.which).." wins"
+	  rr_win_count.last_winner = P1.which
+    end
+	
+    if end_text then
+      analytics.game_ends()
+      return main_dumb_transition, {round_robin_lobby, end_text, 45, -1, winSFX}
+    end
+	
+  end --main loop
 end
 
 function Stack.wait_for_random_character(self)
@@ -1262,7 +1331,7 @@ function make_main_puzzle(puzzles)
   return next_func
 end
 
-do
+do --main_select_puzz()
   local items = {}
   for key,val in spairs(puzzle_sets) do
     items[#items+1] = {key, make_main_puzzle(val)}
@@ -1371,10 +1440,10 @@ function main_config_input()
       elseif menu_down(K[1]) then
         active_idx = wrap(1, active_idx+1, #items)
       elseif menu_left(K[1]) then
-        active_player = wrap(1, active_player-1, 2)
+        active_player = wrap(1, active_player-1, 4)
         k=K[active_player]
       elseif menu_right(K[1]) then
-        active_player = wrap(1, active_player+1, 2)
+        active_player = wrap(1, active_player+1, 4)
         k=K[active_player]
       elseif menu_enter_one_press(K[1]) then
         if active_idx <= #key_names then
