@@ -125,14 +125,14 @@ do --main_select_mode()
         {loc("mm_1_time"), main_select_speed_99, {main_time_attack}},
         {loc("mm_1_vs"), main_local_vs_yourself_setup},
         --{loc("mm_2_vs_online", "burke.ro"), main_net_vs_setup, {"burke.ro"}},
-        {loc("mm_2_vs_online", "Jon's server"), main_net_vs_setup, {"18.188.43.50"}},
+        --{loc("mm_2_vs_online", "Jon's server"), main_net_vs_setup, {"18.188.43.50"}},
         --{loc("mm_2_vs_online", "betaserver.panelattack.com"), main_net_vs_setup, {"betaserver.panelattack.com"}},
         --{loc("mm_2_vs_online", "(USE ONLY WITH OTHER CLIENTS ON THIS TEST BUILD 025beta)"), main_net_vs_setup, {"18.188.43.50"}},
         --{loc("mm_2_vs_online", "This test build is for offline-use only"), main_select_mode},
         --{loc("mm_2_vs_online", "domi1819.xyz"), main_net_vs_setup, {"domi1819.xyz"}},
         --{loc("mm_2_vs_online", "(development-use only)"), main_net_vs_setup, {"localhost"}},
         --{loc("mm_2_vs_online", "LittleEndu's server"), main_net_vs_setup, {"51.15.207.223"}},
-        {loc("mm_2_vs_online", "server for ranked Ex Mode"), main_net_vs_setup, {"exserver.panelattack.com",49568}},
+        --{loc("mm_2_vs_online", "server for ranked Ex Mode"), main_net_vs_setup, {"exserver.panelattack.com",49568}},
         {loc("mm_2_vs_local"), main_local_vs_setup},
         --{loc("mm_replay_of", loc("mm_1_endless")), main_replay_endless},
         --{loc("mm_replay_of", loc("mm_1_puzzle")), main_replay_puzzle},
@@ -154,14 +154,24 @@ do --main_select_mode()
     while true do
       local to_print = ""
       local arrow = ""
+	  local print_players = ""
+	  
       for i=1,#items do
         if active_idx == i then
           arrow = arrow .. ">"
         else
           arrow = arrow .. "\n"
         end
-        to_print = to_print .. "   " .. items[i][1] .. "\n"
+		
+		if items[i][1] == "Round Robin" then
+	      print_players = "\tPlayers:  < " .. global_rr.num_players .. " >"
+		else
+		  print_players = ""
+		end
+		
+        to_print = to_print .. "   " .. items[i][1] .. print_players .. "\n"
       end
+	  
       gprint(arrow, unpack(main_menu_screen_pos))
       gprint(to_print, unpack(main_menu_screen_pos))
 
@@ -182,11 +192,24 @@ do --main_select_mode()
 
       wait()
       local ret = nil
+	  
+	  local function change_player_number(inc)
+		global_rr.num_players = wrap(3, global_rr.num_players + inc, 8) 
+	  end
+	  
       variable_step(function()
         if menu_up(k) then
           active_idx = wrap(1, active_idx-1, #items)
         elseif menu_down(k) then
           active_idx = wrap(1, active_idx+1, #items)
+		elseif menu_right(k) then
+		  if items[active_idx][1] == "Round Robin" then
+			change_player_number(1)
+		  end
+		elseif menu_left(k) then
+		  if items[active_idx][1] == "Round Robin" then
+			change_player_number(-1)
+		  end
         elseif menu_enter(k) then
           ret = {items[active_idx][2], items[active_idx][3]}
         elseif menu_escape(k) then
@@ -318,13 +341,16 @@ local function pick_use_music_from()
   end
 end
 
---shamelessly copied from below (main_local_vs())
+-- based off main_local_vs()
 function rr_local_vs()
+  l_player_wins = l_player_wins or 0
+  r_player_wins = r_player_wins or 0
+  local end_text = nil
+  local winning_player = nil
 
   use_current_stage()
   pick_use_music_from()
-  local end_text = nil
-
+ 
   while true do 	
     if game_is_paused then
       draw_pause()
@@ -343,7 +369,10 @@ function rr_local_vs()
 		  
 		  --print the current player over their panel
 		  gprint("Player "..tostring(P1.which), (P1.pos_x+35)*GFX_SCALE, (P1.pos_y-16)*GFX_SCALE, black, 2)
-		  gprint("Player "..tostring(P2.which), (P2.pos_x+35)*GFX_SCALE, (P2.pos_y-16)*GFX_SCALE, black, 2)		  
+		  gprint("Player "..tostring(P2.which), (P2.pos_x+35)*GFX_SCALE, (P2.pos_y-16)*GFX_SCALE, black, 2)	
+
+		  gprint("Wins: "..tostring(l_player_wins), (P1.pos_x+101)*GFX_SCALE, (P1.pos_y+60)*GFX_SCALE, black, 1)
+		  gprint("Wins: "..tostring(r_player_wins), (P2.pos_x-35)*GFX_SCALE, (P2.pos_y+60)*GFX_SCALE, black, 1)
         end
     end)
 
@@ -351,26 +380,49 @@ function rr_local_vs()
 	
 	--tie
     if P1.game_over and P2.game_over and P1.CLOCK == P2.CLOCK then
-      end_text = loc("ss_draw")
-	  rr_win_count.last_winner = nil
+	  winning_player = -1
+	  global_rr.win_count.last_winner = nil
 	--P2 wins  
     elseif P1.game_over and P1.CLOCK <= P2.CLOCK then
       winSFX = P2:pick_win_sfx()
-	  rr_win_count[P2.which] = rr_win_count[P2.which] + 1 
-      end_text = "Player "..tostring(P2.which).." wins"
-	  rr_win_count.last_winner = P2.which --records the most recent winner
+	  r_player_wins = (r_player_wins + 1) or 1
+	  winning_player = P2.which
 	 --P1 wins 
     elseif P2.game_over and P2.CLOCK <= P1.CLOCK then
       winSFX = P1:pick_win_sfx()
-	  rr_win_count[P1.which] = rr_win_count[P1.which] + 1 
-      end_text = "Player "..tostring(P1.which).." wins"
-	  rr_win_count.last_winner = P1.which
+	  l_player_wins = (l_player_wins + 1) or 1
+	  winning_player = P1.which
     end
 	
-    if end_text then
-      analytics.game_ends()
-      return main_dumb_transition, {round_robin_lobby, end_text, 45, -1, winSFX}
-    end
+    if winning_player then
+	  analytics.game_ends()
+			
+      if (global_rr.win_mode == "Single Match" or (l_player_wins == 2 or r_player_wins == 2)) and (winning_player ~= -1) then
+		global_rr.win_count[winning_player] = global_rr.win_count[winning_player] + 1
+		global_rr.win_count.last_winner = winnipeg_player
+		l_player_wins = 0
+		r_player_wins = 0
+
+		return main_dumb_transition, {round_robin_lobby, "Player "..tostring(winning_player).." won the match", 45, -1, winSFX}
+	  else
+		P1 = Stack(P1.which, "vs", P1.panels_dir, P1.level, P1.character, nil, P1.isLPlayer)
+		P2 = Stack(P2.which, "vs", P2.panels_dir, P2.level, P2.character, nil, P2.isLPlayer)
+		move_stack(P2,2)
+		make_local_panels(P1, "000000")
+		make_local_gpanels(P1, "000000")
+		make_local_panels(P2, "000000")
+	    make_local_gpanels(P2, "000000")
+	    P1:starting_state()
+		P2:starting_state()
+		
+		local str_winner = "Player "..tostring(winning_player).." wins"
+		if winning_player == -1 then
+			str_winner = "Tie"
+		end
+		
+		return main_dumb_transition, {rr_local_vs, str_winner, 45, -1, winSFX}
+      end
+	end
 	
   end --main loop
 end
@@ -1391,6 +1443,7 @@ function main_config_input()
   local items, active_idx = {}, 1
   local k = K[1]
   local active_player = 1
+  local num_players_config = 8
   local function get_items()
     items = {[0]={loc("player").. " ", ""..active_player}}
     for i=1,#key_names do
@@ -1440,10 +1493,10 @@ function main_config_input()
       elseif menu_down(K[1]) then
         active_idx = wrap(1, active_idx+1, #items)
       elseif menu_left(K[1]) then
-        active_player = wrap(1, active_player-1, 4)
+        active_player = wrap(1, active_player-1, num_players_config)
         k=K[active_player]
       elseif menu_right(K[1]) then
-        active_player = wrap(1, active_player+1, 4)
+        active_player = wrap(1, active_player+1, num_players_config)
         k=K[active_player]
       elseif menu_enter_one_press(K[1]) then
         if active_idx <= #key_names then

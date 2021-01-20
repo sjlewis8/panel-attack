@@ -6,7 +6,7 @@ require("sound_util")
 -- keyboard assignment vars
 K = {{up="up", down="down", left="left", right="right",
       swap1="z", swap2="x", taunt_up="y", taunt_down="u", raise1="c", raise2="v", pause="p"},
-      {},{},{}}
+      {},{},{},{},{},{},{}}
 keys = {}
 this_frame_keys = {}
 this_frame_released_keys = {}
@@ -50,11 +50,16 @@ global_my_state = nil
 global_op_state = nil
 
 -- round robin globals
-rr_matchup = "" -- "Winner" (winner stays) or "Even" 
-rr_win_count = {} -- number of each player's wins
-global_states = {}  
-isRRSetup = false 
-player_order = Queue() 
+global_rr = {
+	matchup = "", --Even or Winner stays
+	win_mode = "", -- "Best of Three" or "Single Match"
+	win_count = {},
+	states = {},
+	isSetup = false,
+	player_order = Queue(),
+	num_players = 4,
+}
+global_max_players = 8
 
 -- Warning messages
 display_warning_message = false

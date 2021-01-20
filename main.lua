@@ -60,7 +60,6 @@ function love.update(dt)
     error(err..'\n'..debug.traceback(mainloop))
   end
   
-
   this_frame_messages = {}
 
   update_music()

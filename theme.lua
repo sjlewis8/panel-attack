@@ -114,7 +114,7 @@ function Theme.graphics_init(self)
     self.images.IMG_cards[true][i] = self.images.IMG_cards[true][14]
   end
 
-  local MAX_SUPPORTED_PLAYERS = 4
+  local MAX_SUPPORTED_PLAYERS = 8
   self.images.IMG_char_sel_cursors = {}
   self.images.IMG_players = {}
   self.images.IMG_cursor = {}

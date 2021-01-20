@@ -139,36 +139,29 @@ function select_screen.main()
     state.wants_ready = state.ready
   end
 
-  local function refresh_loaded_and_ready(state_1,state_2, state_3, state_4)
-    state_1.loaded = characters[state_1.character] and characters[state_1.character].fully_loaded and stages[state_1.stage] and stages[state_1.stage].fully_loaded
-    if state_2 then
-      state_2.loaded = characters[state_2.character] and characters[state_2.character].fully_loaded and stages[state_2.stage] and stages[state_2.stage].fully_loaded
-    end
-    
-	if state_3 then
-		state_3.loaded = characters[state_3.character] and characters[state_3.character].fully_loaded and stages[state_3.stage] and stages[state_3.stage].fully_loaded
-	end
-	
-	if state_4 then
-		state_4.loaded = characters[state_4.character] and characters[state_4.character].fully_loaded and stages[state_4.stage] and stages[state_4.stage].fully_loaded
-	end
-	
-    if select_screen.character_select_mode == "2p_net_vs" then
-      state_1.ready = state_1.wants_ready and state_1.loaded and state_2.loaded
-    else
-      state_1.ready = state_1.wants_ready and state_1.loaded
-      if state_2 then
-        state_2.ready = state_2.wants_ready and state_2.loaded
-      end
-	  
-	  if state_3 then
-	    state_3.ready = state_3.wants_ready and state_3.loaded
+
+  local function refresh_loaded_and_ready(state_t)
+	local all_players_loaded = true
+	for p = 1, global_max_players do
+	  if state_t[p] and state_t[p].state then 
+		local state_p = state_t[p].state
+		if (not state_p.loaded) then all_players_loaded = false end
+		state_p.loaded = characters[state_p.character] and characters[state_p.character].fully_loaded and stages[state_p.stage] and stages[state_p.stage].fully_loaded
 	  end
-	  
-	  if state_4 then
-	    state_4.ready = state_4.wants_ready and state_4.loaded
+	end
+
+	if select_screen.character_select_mode == "2p_net_vs" then
+	  state_t[1].state.ready = state_t[1].state.wants_ready and state_t[1].state.loaded and state_t[2].state.loaded
+	elseif select_screen.character_select_mode == "round_robin" then
+		for p = 1, global_rr.num_players do
+			state_t[p].state.ready = state_t[p].state.wants_ready and state_t[p].state.loaded and all_players_loaded
+		end
+	else
+	  state_t[1].state.ready = state_t[1].state.wants_ready and state_t[1].state.loaded 
+	  if state_t[2].state then
+	    state_t[2].state.ready = state_t[2].state.wants_ready and state_t[2].state.loaded
 	  end
-    end
+	end
   end
 
   -- layout of the character select screen
@@ -347,15 +340,14 @@ function select_screen.main()
 
   my_win_count = my_win_count or 0
 
-
-	--initializes cursors to the "ready square" (made 8 of them for rr)
-	--d
-  local cursor_data = {
-	{position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}, {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false},
-	{position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}, {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false},
-	{position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}, {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false},
-	{position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}, {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false},
-  }
+  --initializes cursors to the "ready square" (made 8 of them for rr)
+  local cursor_data = {{position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}, {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}}
+  
+  if global_rr.num_players then 
+    for p = 3, global_rr.num_players do
+      cursor_data[p] = {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}
+    end
+  end
   
   -- our data (first player in local)
   if global_my_state ~= nil then
@@ -366,18 +358,19 @@ function select_screen.main()
     character=config.character, character_is_random=( ( config.character==random_character_special_value or characters[config.character]:is_bundle()) and config.character or nil ), level=config.level, panels_dir=config.panels, cursor="__Ready", ready=false, ranked=config.ranked}
   end
 
-  --rr setup --d
+  --rr setup 
   if select_screen.character_select_mode == "round_robin" then
 	rrIsSetup = false
-	rr_matchup = "Winner" --or "Even"
+	global_rr.matchup = "Winner" --or "Even"
+	global_rr.win_mode = "Best of Three"
 	
-	for p = 1, 8 do
-	  rr_win_count[p] = 0	
+	for p = 1, global_rr.num_players do
+	  global_rr.win_count[p] = 0	
       
 	  --this doesn't work yet, loads each player's previously played character
-	  if global_states[p] ~= nil then 
-		cursor_data[p].state = deepcpy(global_states[p])
-		global_states[p] = nil
+	  if global_rr.states[p] ~= nil then 
+		cursor_data[p].state = deepcpy(global_rr.states[p])
+		global_rr.states[p] = nil
 	  else
 	    cursor_data[p].state = {stage = config.stage, stage_is_random = nil, character=config.character, character_is_random=nil, level=config.level, panels_dir=config.panels, cursor="__Ready", ready=false, ranked=config.ranked}
 	  end
@@ -393,7 +386,7 @@ function select_screen.main()
   stage_loader_load(cursor_data[1].state.stage)
   add_client_data(cursor_data[1].state)
 
-  for p = 2, 4 do --d
+  for p = 2, global_rr.num_players do 
 	  if select_screen.character_select_mode ~= "1p_vs_yourself" then
 		if global_op_state ~= nil then
 		  cursor_data[p].state = shallowcpy(global_op_state)
@@ -421,12 +414,8 @@ function select_screen.main()
 	  end
   end
   
-  if select_screen.character_select_mode ~= "round_robin" then 
-	refresh_loaded_and_ready(cursor_data[1].state, cursor_data[2] and cursor_data[2].state or nil)
-  else
-    refresh_loaded_and_ready(cursor_data[1].state, cursor_data[2].state, cursor_data[3].state, cursor_data[4].state)
-  end
-  
+  refresh_loaded_and_ready(cursor_data)
+
   local prev_state = shallowcpy(cursor_data[1].state)
 
   local super_select_pixelcode = [[
@@ -447,7 +436,7 @@ function select_screen.main()
   local super_select_shaders = { love.graphics.newShader(super_select_pixelcode), love.graphics.newShader(super_select_pixelcode) }
 
   --draws all the different kinds of buttons!
-  local function draw_button(x,y,w,h,str,halign,valign,no_rect, getXY) --d
+  local function draw_button(x,y,w,h,str,halign,valign,no_rect, getXY) 
     no_rect = no_rect or str == "__Empty" or str == "__Reserved" --border around box?
     halign = halign or "center"
     valign = valign or "top"
@@ -460,8 +449,8 @@ function select_screen.main()
 	
     set_color(unpack(colors.white))
 	
-	--grays out inactive players in round robin --d
-	if(str == "P1" or str == "P2" or str == "P3" or str == "P4") then
+	--grays out inactive players in round robin 
+	if(str:match('^[P]%d$')) then --begins with P and ends with a digit
 		if cursor_data[tonumber(string.sub(str,2,2))].active == false then
 			set_color(unpack(colors.gray))
 		end
@@ -479,7 +468,7 @@ function select_screen.main()
 	--pictures of each player's chosen character
     local character = characters[str]
 	
-	for p = 1, 4 do --d
+	for p = 1, global_rr.num_players do 
 		if str == "P"..p then
 		  if cursor_data[p].state.character_is_random then
 			if cursor_data[p].state.character_is_random == random_character_special_value then
@@ -575,10 +564,10 @@ function select_screen.main()
       local cursor_frame = 1
 	  local ready_freq = 2
 	  
-	  if select_screen.character_select_mode == "round_robin" and not inLobby then ready_freq = 4 end
+	  if select_screen.character_select_mode == "round_robin" and not inLobby then ready_freq = global_rr.num_players end
       
 	  if ready then
-        if (math.floor(menu_clock/cur_blink_frequency))%ready_freq+1 == player_num%2+1 then --d "== player_num" (didn't have the "%2+1")
+        if (math.floor(menu_clock/cur_blink_frequency))%ready_freq+1 == player_num%2+1 then  
           draw_cur_this_frame = true
         end
       else
@@ -812,12 +801,10 @@ function select_screen.main()
     elseif str == "P2" then
       draw_player_state(cursor_data[2],2)
       pstr = op_name    
-	elseif str == "P3" then --d
-	  draw_player_state(cursor_data[3],3)
-	  pstr = "Player 3"
-	elseif str == "P4" then
-	  draw_player_state(cursor_data[4],4)
-	  pstr = "Player 4"
+	elseif str:match('^[P][345678]$') then
+	  local p_num = tonumber(str:sub(2,2,1))
+	  draw_player_state(cursor_data[p_num],p_num)
+	  pstr = "Player "..tostring(p_num)
     elseif character and character ~= random_character_special_value then
       pstr = character.display_name
     elseif string.sub(str, 1, 2) ~= "__" then -- catch random_character_special_value case
@@ -842,8 +829,8 @@ function select_screen.main()
           draw_super_select(2)
         end
       end
-	  for p = 3, 4 do
-		  if (select_screen.character_select_mode == "round_robin") --d
+	  for p = 3, global_rr.num_players do
+		  if (select_screen.character_select_mode == "round_robin") 
 		   and cursor_data[p].state and cursor_data[p].state.cursor == str
 			and ( (str ~= "__Empty" and str ~= "__Reserved") or ( cursor_data[p].position[1] == x and cursor_data[p].position[2] == y ) ) then
 			draw_cursor(button_height, spacing, p, cursor_data[p].state.ready)
@@ -870,7 +857,7 @@ function select_screen.main()
   local v_align_center = { __Ready=true, __Random=true, __Leave=true }
   local is_special_value = { __Leave=true, __Level=true, __Panels=true, __Ready=true, __Stage=true, __Mode=true, __Random=true } --these look different than normal buttoms?
 
-	--main menu loop?
+  --main menu loop?
   while true do
   
     -- draw the buttons, handle horizontal spans
@@ -927,7 +914,8 @@ function select_screen.main()
             character_loader_load(cursor_data[2].state.character)
             stage_loader_load(cursor_data[2].state.stage)
           end
-          refresh_loaded_and_ready(cursor_data[1],cursor_data[2])
+           --refresh_loaded_and_ready(cursor_data[1],cursor_data[2])
+		    refresh_loaded_and_ready(cursor_data)
         end
         if msg.ranked_match_approved then
           match_type = "Ranked"
@@ -1110,18 +1098,18 @@ function select_screen.main()
     draw_button(0,2,2,1,get_player_state_str(my_player_number,my_rating_difference,my_win_count,op_win_count,my_expected_win_ratio),"left","top",true)
 	
 	--draws P2 and stats
-    if cursor_data[1].state and op_name then 
-      draw_button(0,3,1,1,"P2")
+    if select_screen.character_select_mode ~= "round_robin" then 
+	  if cursor_data[1].state and op_name then 
+	  draw_button(0,3,1,1,"P2")
       draw_button(0,4,2,1,get_player_state_str(op_player_number,op_rating_difference,op_win_count,my_win_count,op_expected_win_ratio),"left","top",true)
       --state = state.." "..json.encode(op_state)
-    end
-	
-	--draw P3 and P4 --d
-	if select_screen.character_select_mode == "round_robin" then
-		draw_button(0,5,1,1,"P3")
-		draw_button(0,7,1,1,"P4")
+      end
+	else 
+	  local spacing = 8 / global_rr.num_players
+	  for p = 2, global_rr.num_players do
+	    draw_button(0, p *spacing,1,1,"P"..p)
+	  end
 	end
-	
 	--prints if net play game is ranked or casual
     if select_screen.character_select_mode == "2p_net_vs" then
       if not cursor_data[1].state.ranked and not cursor_data[2].state.ranked then
@@ -1314,23 +1302,19 @@ function select_screen.main()
       character_loader_update()
       stage_loader_update()
 
-	  if select_screen.character_select_mode ~= "round_robin" then 
-		refresh_loaded_and_ready(cursor_data[1].state, cursor_data[2] and cursor_data[2].state or nil)
-	  else
-		refresh_loaded_and_ready(cursor_data[1].state, cursor_data[2].state, cursor_data[3].state, cursor_data[4].state)
-	  end
+	  refresh_loaded_and_ready(cursor_data)
 
       local up,down,left,right = {-1,0}, {1,0}, {0,-1}, {0,1}
 	  
 	  --loops over each cursor's position and does what needs to be done
-	  --I don't know where K[] came from but it holds each player's key bindings (ie 'left' = 'a', etc) ... K[player number]
       if not currently_spectating then
         local KMax = 1
         if select_screen.character_select_mode == "2p_local_vs" or select_screen.character_select_mode == "round_robin" then
-          KMax = 4 --d (4 players)
+          KMax = global_rr.num_players
         end
 		
         for i=1,KMax do
+		print(i)
           local k=K[i]
           local cursor = cursor_data[i]
 
@@ -1429,39 +1413,36 @@ function select_screen.main()
       return unpack(ret)
     end
 	
-	------------------------------------------------------------
-	-- ROUND_ROBIN_LOBBY()                                    --
-	------------------------------------------------------------
-	
-	function round_robin_lobby(prev_winner) --not local so that it can be called after game
+------------------------------------------------------------
+-- ROUND_ROBIN_LOBBY()                                    --
+------------------------------------------------------------
+	function round_robin_lobby()
 		local ret = nil
 		local l_player, r_player = nil, nil	
-		local num_players = 4 --deal with this someday
 		
 		local function init_players()
-			for p = 1, num_players do
+			for p = 1, global_rr.num_players do
 				cursor_data[p].state.ready = nil
 				cursor_data[p].ready = false
 				cursor_data[p].selected = false
 				cursor_data[p].active = true --false if sitting out
-				rr_win_count[p] = 0
+				global_rr.win_count[p] = 0
 			end				
 		end	
 	
 		--chooses player order
-		--player_order is a Queue defined in globals
 		local function fill_player_queue()
 			local chosen_players = {}
 			
-			for i = 1, num_players do
+			for i = 1, global_rr.num_players do
 				local p
 				
 				repeat
-					p = math.random(num_players)
+					p = math.random(global_rr.num_players)
 				until chosen_players[p] == nil 
 				
 				if cursor_data[p].active then
-					player_order:push(p)
+					global_rr.player_order:push(p)
 				end
 				
 				chosen_players[p] = true				
@@ -1471,42 +1452,42 @@ function select_screen.main()
 		local function pick_now_playing()		
 			--chooses left player
 			if (not l_player or l_player == nobody) then	
-				if rr_win_count.last_winner and rr_matchup == "Winner" and r_player ~= rr_win_count.last_winner and cursor_data[rr_win_count.last_winner].active then
-					l_player = rr_win_count.last_winner
+				if global_rr.win_count.last_winner and global_rr.matchup == "Winner" and r_player ~= global_rr.win_count.last_winner and cursor_data[global_rr.win_count.last_winner].active then
+					l_player = global_rr.win_count.last_winner
 				else
-					if player_order:len() == 0 then
+					if global_rr.player_order:len() == 0 then
 						fill_player_queue()
 					end
 					
-					if player_order:len() > 0 then
+					if global_rr.player_order:len() > 0 then
 						repeat
-							l_player = player_order:pop()
+							l_player = global_rr.player_order:pop()
 							
 							if cursor_data[l_player].active == false or l_player == r_player then 
 								l_player = nobody -- =nobody if no player is free to play (ie all sitting out) 
 							end
-						until l_player or player_order:len() < 1	
+						until l_player or global_rr.player_order:len() < 1	
 					end 
 				end
 			end
 
 			--chooses right player
 			if (not r_player or r_player == nobody) then
-				if rr_win_count.last_winner and rr_matchup == "Winner" and l_player ~= rr_win_count.last_winner and cursor_data[rr_win_count.last_winner].active then
-					r_player = rr_win_count.last_winner
+				if global_rr.win_count.last_winner and global_rr.matchup == "Winner" and l_player ~= global_rr.win_count.last_winner and cursor_data[global_rr.win_count.last_winner].active then
+					r_player = global_rr.win_count.last_winner
 				else
-					if player_order:len() == 0 then
+					if global_rr.player_order:len() == 0 then
 						fill_player_queue()
 					end
 					
-					if player_order:len() > 0 then				
+					if global_rr.player_order:len() > 0 then				
 						repeat
-							r_player = player_order:pop()
+							r_player = global_rr.player_order:pop()
 							
 							if cursor_data[r_player].active == false or r_player == l_player then 
 								r_player = nobody 
 							end
-						until r_player or player_order:len() < 1
+						until r_player or global_rr.player_order:len() < 1
 					end
 				end
 			end		
@@ -1519,7 +1500,7 @@ function select_screen.main()
 		bg_quad = love.graphics.newQuad(0, 0, canvas_width, canvas_height, scrolling_bg:getWidth(), scrolling_bg:getHeight())
 
 		--only should be done the first time
-		if not isRRSetup then
+		if not global_rr.isSetup then
 			init_players()
 			fill_player_queue()
 		end
@@ -1527,7 +1508,7 @@ function select_screen.main()
 		pick_now_playing()
 		
 		--starting positions of the cursors
-		for p = 1, num_players do
+		for p = 1, global_rr.num_players do
 			if p == l_player then 
 				cursor_data[p].state.cursor = "Ready Left Player"
 			elseif p == r_player then
@@ -1548,13 +1529,13 @@ function select_screen.main()
 			
 			local function draw_interface()
 				--draw current players
-				for p = 1, num_players do
+				for p = 1, global_rr.num_players do
 					if p <= 4 then
 						draw_button((p - 0.5) * 1.25, 0, 1, 1, "P"..p)
-						draw_button((p - 0.5) * 1.25, 1, 1, 1, "Wins: "..tostring(rr_win_count[p]), "center", "center", true);
+						draw_button((p - 0.5) * 1.25, 1, 1, 1, "Wins: "..tostring(global_rr.win_count[p]), "center", "center", true);
 					else 
 						draw_button((p - 4 - 0.5) * 1.25, 3, 1, 1, "P"..p)
-						draw_button((p - 4 - 0.5) * 1.25, 4, 1, 1, "Wins: "..tostring(rr_win_count[p]), "center", "center", true);
+						draw_button((p - 4 - 0.5) * 1.25, 4, 1, 1, "Wins: "..tostring(global_rr.win_count[p]), "center", "center", true);
 					end
 				end
 				
@@ -1580,19 +1561,20 @@ function select_screen.main()
 				else
 					draw_button(0.5, 8, 2, 2, "No free player", "center", "center")
 				end
-				
+				 
 				--draw option buttons
 				draw_button(3.5*1.25, 8, 1, 1, "Sit Out")
 				draw_button(3.5*1.25, 9, 1, 1, "Leave")
-				draw_button(3.5*1.25, 7, 1, 1, "Next Player")
 				
-				gprint("<-"..string.upper(rr_matchup).."->", 800, 550)
+				draw_button(3.5*1.25, 7, 1, 1, "Next Player")
+				gprintf("<-"..string.upper(global_rr.matchup).."->", 800, 550)
+				
+				draw_button(3.5*1.25, 5, 2, 1, "Game Type")
+				gprint("<-"..string.upper(global_rr.win_mode).."->", 630, 550)
 			end		
 	
 			scroll_background()
 			draw_interface()
-			--gprintTable(cursor_data)
-			--gprintQueue(player_order, 300, 0)
 		
 			pick_now_playing()
 						
@@ -1607,15 +1589,18 @@ function select_screen.main()
 						if cursor.state.cursor == "Ready Left Player" 		then cursor.state.cursor = "Ready Right Player"
 						elseif cursor.state.cursor == "Ready Right Player"  then cursor.state.cursor = "Ready Left Player"
 						elseif cursor.state.cursor == "Sit Out" 			then cursor.state.cursor = "Next Player" 
-						elseif cursor.state.cursor == "Next Player" 		then cursor.state.cursor = "Leave"
+						elseif cursor.state.cursor == "Next Player" 		then cursor.state.cursor = "Game Type"
+						elseif cursor.state.cursor == "Game Type" 			then cursor.state.cursor = "Leave"
 						elseif cursor.state.cursor == "Leave" 				then cursor.state.cursor = "Sit Out" 
 						end
 					end
 
 					if dir == "right" then 
 						if cursor.state.cursor == "Ready Left Player" 		then cursor.state.cursor = "Ready Right Player" 
-						elseif cursor.state.cursor == "Ready Right Player" then cursor.state.cursor = "Ready Left Player"
+						elseif cursor.state.cursor == "Ready Right Player" 	then cursor.state.cursor = "Ready Left Player"
 						elseif cursor.state.cursor == "Sit Out" 			then cursor.state.cursor = "Leave"
+						elseif cursor.state.cursor == "Leave"	 			then cursor.state.cursor = "Game Type"
+						elseif cursor.state.cursor == "Game Type" 			then cursor.state.cursor = "Next Player"
 						elseif cursor.state.cursor == "Next Player" 		then cursor.state.cursor = "Sit Out"
 						elseif cursor.state.cursor == "Leave" 				then cursor.state.cursor = "Next Player"
 						end
@@ -1624,7 +1609,7 @@ function select_screen.main()
 					if dir == "up" or dir == "down" then
 						if cursor.state.cursor == "Ready Left Player" or cursor.state.cursor == "Ready Right Player" then 
 							cursor.state.cursor = "Sit Out" 
-						elseif cursor.state.cursor == "Sit Out" or cursor.state.cursor == "Leave" or cursor.state.cursor == "Next Player" then
+						elseif cursor.state.cursor == "Sit Out" or cursor.state.cursor == "Leave" or cursor.state.cursor == "Next Player" or cursor.state.cursor == "Game Type" then
 							if player == l_player then cursor.state.cursor = "Ready Left Player" end
 							if player == r_player then cursor.state.cursor = "Ready Right Player" end
 						end
@@ -1633,11 +1618,10 @@ function select_screen.main()
 					--if the player isn't playing... don't let them try to choose a ready button
 					if cursor.state.cursor == "Ready Left Player" and (not (player == l_player)) then cursor.state.cursor = prev end
 					if cursor.state.cursor == "Ready Right Player" and (not (player == r_player)) then cursor.state.cursor = prev end
-					
-				  end
+				end
 				
 				-- handles each player's keyboard input
-				for i = 1, num_players do
+				for i = 1, global_rr.num_players do
 				  local k = K[i]
 				  local cursor = cursor_data[i]				 		  
 				  
@@ -1648,11 +1632,19 @@ function select_screen.main()
 
 				  --if manipulating the next player option button
 				  if (menu_right(k) or menu_left(k)) and cursor.selected and cursor.state.cursor == "Next Player" then
-				    player_order:clear()
-					if rr_matchup == "Winner" then 
-						rr_matchup = "Even" 
-					elseif rr_matchup == "Even" then 
-						rr_matchup = "Winner" 
+				    global_rr.player_order:clear()
+					if global_rr.matchup == "Winner" then 
+						global_rr.matchup = "Even" 
+					elseif global_rr.matchup == "Even" then 
+						global_rr.matchup = "Winner" 
+					end
+				  end
+				  
+				  if (menu_right(k) or menu_left(k)) and cursor.selected and cursor.state.cursor == "Game Type" then
+					if global_rr.win_mode == "Best of Three" then 
+						global_rr.win_mode = "Single Match" 
+					elseif global_rr.win_mode == "Single Match" then 
+						global_rr.win_mode = "Best of Three" 
 					end
 				  end
 				  
@@ -1663,7 +1655,7 @@ function select_screen.main()
 							cursor.state.ready = true
 							cursor.ready = true -- I'm not sure why there are two places for "ready"
 						elseif cursor.state.cursor == "Leave" then 
-							player_order:clear()
+							global_rr.player_order:clear()
 							ret = main_select_mode
 							return
 						elseif cursor.state.cursor == "Sit Out" then
@@ -1674,12 +1666,12 @@ function select_screen.main()
 							end
 							
 							--remove this player from the queue if sitting out
-							for j = 1, player_order:len() do
-								if(player_order:peek() == i) then
-									player_order:pop()
+							for j = 1, global_rr.player_order:len() do
+								if(global_rr.player_order:peek() == i) then
+									global_rr.player_order:pop()
 									j = j + 1
 								else
-									player_order:push(player_order:pop())
+									global_rr.player_order:push(global_rr.player_order:pop())
 								end
 							end
 							
@@ -1692,7 +1684,6 @@ function select_screen.main()
 						cursor.active = true
 					end				
 				  end  --end "Enter" key handling		
-				  
 				end --end input for loop				
 			end) --end variable step function
 			
@@ -1713,7 +1704,6 @@ function select_screen.main()
 				  stage_loader_load(current_stage)
 				  stage_loader_wait()
 				  move_stack(P2,2) --I think this shifts over the right player's play area
-				  --see note around this code below..
 				  make_local_panels(P1, "000000")
 				  make_local_gpanels(P1, "000000")
 				  make_local_panels(P2, "000000")
@@ -1721,7 +1711,7 @@ function select_screen.main()
 				  P1:starting_state()
 				  P2:starting_state()
 				  				  
-				  for p = 1, num_players do
+				  for p = 1, global_rr.num_players do
 					if cursor_data[p].active ~= false then
 						cursor_data[p].ready = false
 						cursor_data[p].state.ready = false
@@ -1738,22 +1728,21 @@ function select_screen.main()
 			wait() 
 		end --end main loop		
 		
-		if isRRSetup then
+		if global_rr.isSetup then
 			if ret == main_select_mode then
-				isRRSetup = false
+				global_rr.isSetup = false
 			end
 			
 			return main_dumb_transition(ret, "", 0, 0)
 		else
 			if ret == rr_local_vs then
-				isRRSetup = true
+				global_rr.isSetup = true
 			end
 			
 			return {ret, "", 0, 0}
 		end
 	end --end round_robin_lobby
 	
-	--checks if both players are ready to go!
     --1P
 	if cursor_data[1].state.ready and select_screen.character_select_mode == "1p_vs_yourself" then
       P1 = Stack(1, "vs", cursor_data[1].state.panels_dir, cursor_data[1].state.level, cursor_data[1].state.character)
@@ -1792,9 +1781,18 @@ function select_screen.main()
       P2:starting_state()
       return main_dumb_transition, {main_local_vs, "", 0, 0}
     
-	--round robin --d
-	elseif select_screen.character_select_mode == "round_robin" and cursor_data[1].state.ready and cursor_data[2].state.ready and cursor_data[3].state.ready and cursor_data[4].state.ready then 
-      return main_dumb_transition, round_robin_lobby()
+	--round robin 
+	elseif select_screen.character_select_mode == "round_robin" then
+ 	  local all_players_ready = true
+	  for p = 1, global_rr.num_players do
+		if (not cursor_data[p].state.ready) then 
+		  all_players_ready = false 
+		end
+	  end
+	 
+      if all_players_ready then  
+		return main_dumb_transition, round_robin_lobby()
+	  end
 	  
 	--2P Net
 	elseif select_screen.character_select_mode == "2p_net_vs" then
