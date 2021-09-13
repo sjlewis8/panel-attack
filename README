@@ -1,4 +1,4 @@
-Adds an offline round robin style play mode
+Adds round robin style play mode both offline and with custom server
 
 1.	Install love (http://love2d.org/)
 2.	cd Panel-Attack

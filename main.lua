@@ -26,11 +26,15 @@ local last_y = 0
 local input_delta = 0.0
 local pointer_hidden = false
 
-function love.load()
+function love.load(args)
   math.randomseed(os.time())
   for i=1,4 do math.random() end
   read_key_file()
   mainloop = coroutine.create(fmainloop)
+  
+  --override window x and y position from command line arguments
+  arg_x = args[1] or config.x
+  arg_y = args[2] or config.y
 end
 
 function love.update(dt)
@@ -39,7 +43,7 @@ function love.update(dt)
       if input_delta > mouse_pointer_timeout then
         pointer_hidden = true
         love.mouse.setVisible(false)
-      else
+      else 
        input_delta = input_delta + dt
       end
     end

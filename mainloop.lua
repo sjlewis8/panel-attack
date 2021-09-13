@@ -39,7 +39,8 @@ function fmainloop()
   wait()
   read_conf_file()
   local x, y, display = love.window.getPosition()
-  love.window.setPosition( config.window_x or x, config.window_y or y, config.display or display )
+
+  love.window.setPosition( arg_x or config.window_x or x, arg_y or config.window_y or y, config.display or display )
   love.window.setVSync( config.vsync and 1 or 0 )
   gprint("Loading localization...", unpack(main_menu_screen_pos))
   wait()
@@ -117,6 +118,21 @@ do --main_select_mode()
     connected_server_ip = ""
     current_server_supports_ranking = false
     match_type = ""
+
+	custom_ip = config.custom_ip or "-.-.-.-"
+	custom_ip_nums = {"-","-","-","-"}
+
+	if config.custom_ip then
+		local i = 1
+		for token in string.gmatch(config.custom_ip, '[^.]+') do
+		   custom_ip_nums[i] = token
+		   i = i +1 
+		end	
+		custom_ip = config.custom_ip		
+	end
+	
+	ip_octet = 1
+	ip_input_mode = false
   
     match_type_message = ""
     local items = {
@@ -133,6 +149,7 @@ do --main_select_mode()
         --{loc("mm_2_vs_online", "(development-use only)"), main_net_vs_setup, {"localhost"}},
         --{loc("mm_2_vs_online", "LittleEndu's server"), main_net_vs_setup, {"51.15.207.223"}},
         --{loc("mm_2_vs_online", "server for ranked Ex Mode"), main_net_vs_setup, {"exserver.panelattack.com",49568}},
+		{"Custom server", rr_netplay_local_setup, {custom_ip}},
         {loc("mm_2_vs_local"), main_local_vs_setup},
         --{loc("mm_replay_of", loc("mm_1_endless")), main_replay_endless},
         --{loc("mm_replay_of", loc("mm_1_puzzle")), main_replay_puzzle},
@@ -144,6 +161,7 @@ do --main_select_mode()
         {loc("mm_music_test"), main_music_test},
 		{"Round Robin", round_robin_setup}
     }
+	
     if love.graphics.getSupported("canvas") then
       items[#items+1] = {loc("mm_fullscreen", "(LAlt+Enter)"), fullscreen}
     else
@@ -151,13 +169,15 @@ do --main_select_mode()
     end
     items[#items+1] = {loc("mm_quit"), exit_game }
     local k = K[1]
+
     while true do
       local to_print = ""
       local arrow = ""
 	  local print_players = ""
-	  
+	  local print_server_ip = ""
+
       for i=1,#items do
-        if active_idx == i then
+        if active_idx == i and ip_input_mode == false then
           arrow = arrow .. ">"
         else
           arrow = arrow .. "\n"
@@ -165,17 +185,33 @@ do --main_select_mode()
 		
 		if items[i][1] == "Round Robin" then
 	      print_players = "\tPlayers:  < " .. global_rr.num_players .. " >"
+		elseif items[i][1] == "Custom server" then
+		  
+		  if ip_input_mode == true and not(ip_octet == 4 and (tonumber(custom_ip_nums[ip_octet]) or 1) >= 100) then
+			if(custom_ip_nums[ip_octet] == "_") then 
+		     custom_ip_nums[ip_octet] = custom_ip_nums[ip_octet]:gsub('[_]', '█');	
+			else
+  			  custom_ip_nums[ip_octet] = custom_ip_nums[ip_octet] .. "█"
+			end
+		  end
+		  
+		  print_ip_server = ":  ";
+		  if ip_input_mode == true then print_ip_server = print_ip_server .. "> " end
+		  print_ip_server = print_ip_server .. custom_ip_nums[1] .. "." .. custom_ip_nums[2] .. "." .. custom_ip_nums[3] .. "." .. custom_ip_nums[4]
+		  if type(custom_ip_nums[ip_octet]) == "string" then custom_ip_nums[ip_octet] = (custom_ip_nums[ip_octet] or ""):gsub('[_█]', ''); end
+		 
 		else
 		  print_players = ""
+		  print_ip_server = ""
 		end
 		
-        to_print = to_print .. "   " .. items[i][1] .. print_players .. "\n"
+        to_print = to_print .. "   " .. items[i][1] .. print_players .. print_ip_server .. "\n"
       end
 	  
       gprint(arrow, unpack(main_menu_screen_pos))
       gprint(to_print, unpack(main_menu_screen_pos))
 
-      if wait_game_update ~= nil then
+      --[[if wait_game_update ~= nil then
         has_game_update = wait_game_update:pop()
         if has_game_update ~= nil and has_game_update then
           wait_game_update = nil
@@ -189,7 +225,8 @@ do --main_select_mode()
           menu_draw(panels[config.panels].images.classic[1][1], 1262, 685)
         end
       end
-
+	  ]]--
+	  
       wait()
       local ret = nil
 	  
@@ -197,34 +234,199 @@ do --main_select_mode()
 		global_rr.num_players = wrap(3, global_rr.num_players + inc, 8) 
 	  end
 	  
+	  local function isIPValid(ip_array)
+	    local result = true;
+	    for k,v in ipairs(ip_array) do
+		  if((tonumber(v) or -1) < 0 or (tonumber(v) or -1) > 255) then result = false end
+	    end	  
+		
+		if ip_array[1] == "0" and ip_array[2] == "0" and ip_array[3] == "0" and ip_array[4] == "0" then result = false end
+
+	    return result;
+	  end
+	  
       variable_step(function()
-        if menu_up(k) then
+        if menu_up(k) and ip_input_mode == false then
           active_idx = wrap(1, active_idx-1, #items)
-        elseif menu_down(k) then
+        elseif menu_down(k) and ip_input_mode == false then
           active_idx = wrap(1, active_idx+1, #items)
 		elseif menu_right(k) then
 		  if items[active_idx][1] == "Round Robin" then
 			change_player_number(1)
+		  elseif items[active_idx][1] == "Custom server" and ip_input_mode == true and ip_octet ~= 4 then
+		    ip_octet = (ip_octet) % 4 +1
+			custom_ip_nums[ip_octet] = ""
+		  elseif items[active_idx][1] == "Custom server" and ip_input_mode == false then
+		  	ip_octet = 1
+		    custom_ip_nums[ip_octet] = ""
+			ip_input_mode = true
+			custom_ip_nums = {"-","-","-","-"}
 		  end
 		elseif menu_left(k) then
 		  if items[active_idx][1] == "Round Robin" then
 			change_player_number(-1)
+		  elseif items[active_idx][1] == "Custom server" and ip_input_mode == true then
+		    if custom_ip_nums[ip_octet] == "" then
+		      ip_octet = (ip_octet-2) % 4 +1
+			end
+			custom_ip_nums[ip_octet] = ""
 		  end
         elseif menu_enter(k) then
+		  if items[active_idx][1] == "Custom server" then
+		    if ip_input_mode == false and isIPValid(custom_ip_nums) == false then
+			  ip_octet = 1
+			  custom_ip_nums[ip_octet] = ""
+			  ip_input_mode = true
+			  custom_ip_nums = {"-","-","-","-"}
+			elseif ip_input_mode == false and isIPValid(custom_ip_nums) == true then
+			  config.custom_ip = custom_ip_nums[1] .. "." .. custom_ip_nums[2] .. "." .. custom_ip_nums[3] .. "." .. custom_ip_nums[4]
+			  write_conf_file()
+			  ret = {items[active_idx][2], {custom_ip_nums[1] .. "." .. custom_ip_nums[2] .. "." .. custom_ip_nums[3] .. "." .. custom_ip_nums[4]}}
+			elseif ip_octet == 4 and ip_input_mode == true then
+			  ip_input_mode = false
+			  ip_octet = 1
+			 
+			  if not isIPValid(custom_ip_nums) then
+			    custom_ip_nums = {"-","-","-","-"}
+			  end
+			  
+			elseif custom_ip_nums[ip_octet] ~= "_" then
+			  ip_octet = (ip_octet) % 4 +1
+			  custom_ip_nums[ip_octet] = "_"
+			end
+		  else
           ret = {items[active_idx][2], items[active_idx][3]}
+		  end
         elseif menu_escape(k) then
           if active_idx == #items then
             ret = {items[active_idx][2], items[active_idx][3]}
           else
+		  	  	
+		    ip_input_mode = false
+			custom_ip_nums = {"-","-","-","-"}
             active_idx = #items
           end
-        end
+        elseif ip_input_mode == true then -- user typing in server ip address
+		  if this_frame_unicodes and custom_ip_nums[ip_octet] == "_" then custom_ip_nums[ip_octet] = "" end
+		  for _,v in ipairs(this_frame_unicodes) do
+		    custom_ip_nums[ip_octet] = custom_ip_nums[ip_octet].. v
+		  end
+		  
+		  -- move to next octet if 3 digits entered (except last octet)
+		  if(ip_octet ~= 4 and (tonumber(custom_ip_nums[ip_octet]) or 1) >= 100 and (tonumber(custom_ip_nums[ip_octet]) or 1) <= 255) then 
+		    ip_octet = (ip_octet) % 4 +1 
+		    custom_ip_nums[ip_octet] = ""		    	
+		  end
+
+		  -- validate octet
+		  for k,v in ipairs(custom_ip_nums) do
+			if((tonumber(v) or -1) < 0 or (tonumber(v) or -1) > 255) then custom_ip_nums[k] = "_" end
+		  end
+		  
+		end
+	  
       end)
       if ret then
         return unpack(ret)
       end
+	
     end
   end
+end
+
+function rr_netplay_local_setup(ip, network_port)
+  select_screen.character_select_mode = "rr_netplay_char_select"
+  op_name = nil
+  global_rr.num_players = 8
+  inNetplay = true
+  P1, P2 = {}, {} -- in case get a message with blocks while trying to log in
+  
+  if not config.name then
+    return main_set_name
+    else my_name = config.name
+  end
+  
+  --pick your character before logging on 
+  
+  if main_select_mode == select_screen.main() then
+    return main_dumb_transition, {main_select_mode, "", 0, 0}
+  end
+  
+  select_screen.character_select_mode = "rr_netplay"  
+ 
+  network_init(ip, network_port)
+   
+  while not connection_is_ready() do
+    gprint(loc("lb_connecting"), unpack(main_menu_screen_pos))
+    wait()
+	
+    if not do_messages() then
+      return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
+    end
+  end
+  
+  connected_server_ip = ip
+  logged_in = false
+
+  --attempt login
+  read_user_id_file()
+  if not my_user_id then
+    my_user_id = "need a new user id"
+  end
+  
+  local login_status_message = "   "..loc("lb_login")
+  local login_status_message_duration = 2
+  local login_denied = false
+  local prev_act_idx = active_idx
+  local showing_leaderboard = false
+  local sent_requests = {}
+  
+  --request login
+  if connection_up_time <= login_status_message_duration then
+    json_send({login_request=true, user_id=my_user_id})
+  end
+  
+  while logged_in == false do
+
+    --login response
+	local messages = server_queue:pop_all_with("login_successful", "login_denied")
+    for _,msg in ipairs(messages) do
+      if msg.login_successful then
+        current_server_supports_ranking = true
+        logged_in = true
+		init_cursor_number = msg.init_cursor_num
+        if msg.new_user_id then
+          my_user_id = msg.new_user_id
+          print("about to write user id file")
+		  write_user_id_file()
+          login_status_message = loc("lb_user_new", my_name)
+        elseif msg.name_changed then
+          login_status_message = loc("lb_user_update", msg.old_name, msg.new_name)
+          login_status_message_duration = 5
+        else
+          login_status_message = loc("lb_welcome_back", my_name)
+        end
+      elseif msg.login_denied then
+          current_server_supports_ranking = true
+          login_denied = true
+          login_status_message_duration = 10
+          return main_dumb_transition, {main_select_mode, loc("lb_error_msg").."\n\n"..json.encode(msg),60,600}
+      end
+    end
+  
+    --timeout
+    if connection_up_time == 2 and not current_server_supports_ranking then
+      login_status_message = loc("lb_login_timeout")
+      return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
+    end
+
+	--recieve message
+    if not do_messages() then
+      return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
+    end
+  end --login response loop
+ 
+  return main_dumb_transition, {round_robin_lobby, "", 0, 0}
 end
 
 function round_robin_setup()
@@ -341,7 +543,6 @@ local function pick_use_music_from()
   end
 end
 
--- based off main_local_vs()
 function rr_local_vs()
   l_player_wins = l_player_wins or 0
   r_player_wins = r_player_wins or 0
@@ -352,6 +553,7 @@ function rr_local_vs()
   pick_use_music_from()
  
   while true do 	
+	
     if game_is_paused then
       draw_pause()
     else
@@ -414,12 +616,12 @@ function rr_local_vs()
 	    make_local_gpanels(P2, "000000")
 	    P1:starting_state()
 		P2:starting_state()
-		
+
 		local str_winner = "Player "..tostring(winning_player).." wins"
 		if winning_player == -1 then
 			str_winner = "Tie"
 		end
-		
+
 		return main_dumb_transition, {rr_local_vs, str_winner, 45, -1, winSFX}
       end
 	end
@@ -562,6 +764,7 @@ function main_net_vs_lobby()
   local my_rank
   match_type = ""
   match_type_message = ""
+  
   --attempt login
   read_user_id_file()
   if not my_user_id then
@@ -578,9 +781,14 @@ function main_net_vs_lobby()
   if connection_up_time <= login_status_message_duration then
     json_send({login_request=true, user_id=my_user_id})
   end
+  
+  
   while true do
+  
+    --login results
     if connection_up_time <= login_status_message_duration then
       gprint(login_status_message, lobby_menu_x[showing_leaderboard], lobby_menu_y)
+
       local messages = server_queue:pop_all_with("login_successful", "login_denied")
       for _,msg in ipairs(messages) do
         if msg.login_successful then
@@ -611,13 +819,19 @@ function main_net_vs_lobby()
               login_status_message_duration = 7
       end
     end
+	
+	--handle remaining messages
     local messages = server_queue:pop_all_with("choose_another_name", "create_room", "unpaired", "game_request", "leaderboard_report", "spectate_request_granted")
     for _,msg in ipairs(messages) do
+	
+	  --choose another name
       if msg.choose_another_name and msg.choose_another_name.used_names then
         return main_dumb_transition, {main_select_mode, loc("lb_used_name"), 60, 600}
       elseif msg.choose_another_name and msg.choose_another_name.reason then
         return main_dumb_transition, {main_select_mode, "Error: ".. msg.choose_another_name.reason, 60, 300}
       end
+
+	  --create_room or spectate granted
       if msg.create_room or msg.spectate_request_granted then
         global_initialize_room_msg = msg
         select_screen.character_select_mode = "2p_net_vs"
@@ -625,6 +839,8 @@ function main_net_vs_lobby()
         play_optional_sfx(themes[config.theme].sounds.notification)
         return select_screen.main
       end
+	  
+	  --unpaired
       if msg.unpaired then
         unpaired_players = msg.unpaired
         -- players who leave the unpaired list no longer have standing invitations to us.\
@@ -641,11 +857,15 @@ function main_net_vs_lobby()
           spectatable_rooms = msg.spectatable
         end
       end
+
+	  --game requested
       if msg.game_request then
         willing_players[msg.game_request.sender] = true
         love.window.requestAttention()
         play_optional_sfx(themes[config.theme].sounds.notification)
       end
+
+	  --show leaderboard
       if msg.leaderboard_report then
         showing_leaderboard = true
         leaderboard_report = msg.leaderboard_report
@@ -659,6 +879,8 @@ function main_net_vs_lobby()
         leaderboard_string = build_viewable_leaderboard_string(leaderboard_report, leaderboard_first_idx_to_show, leaderboard_last_idx_to_show)
       end
     end
+	
+	--print menu
     local to_print = ""
     local arrow = ""
     items = {}
@@ -714,6 +936,8 @@ function main_net_vs_lobby()
 
     wait()
     local ret = nil
+
+	--handle keyboard input
     variable_step(function()
       if menu_up(k) then
         if showing_leaderboard then
@@ -770,7 +994,9 @@ function main_net_vs_lobby()
         end
       end
     end)
+
     if ret then
+
       json_send({logout=true})
       return unpack(ret)
     end
@@ -851,6 +1077,7 @@ function main_net_vs_setup(ip, network_port)
 end
 
 function main_net_vs()
+
   --STONER_MODE = true
   if current_stage then
     use_current_stage()
@@ -864,6 +1091,7 @@ function main_net_vs()
   if string.len(my_name) > 12 then
         op_name_y = 55
   end
+ server_queue:pop_all_with("taunt", "leave_room") -- find a better way than this
   while true do
     -- Uncomment this to cripple your game :D
     -- love.timer.sleep(0.030)
@@ -883,23 +1111,33 @@ function main_net_vs()
           end
           if msg.index <= #taunts then
             taunts[msg.index]:play()
-          elseif #taunts ~= 0 then
+          elseif #taunts ~= 0 then 
             taunts[math.random(#taunts)]:play()
           end
         end
       elseif msg.leave_room then
+	 
         my_win_count = 0
         op_win_count = 0
-        return main_dumb_transition, {main_net_vs_lobby, "", 0, 0}
+		local ret = main_net_vs_lobby
+		if inNetplay then
+			ret = round_robin_lobby
+			--ret = main_select_mode
+			--json_send({logout=true})
+		end
+        return main_dumb_transition, {ret, "", 0, 0}
       end
     end
 
+	--print names and scores
     local name_and_score = { (my_name or "").."\n"..loc("ss_wins").." "..my_win_count, (op_name or "").."\n"..loc("ss_wins").." "..op_win_count}
     gprint(name_and_score[1], P1.score_x, P1.score_y-48)
     gprint(name_and_score[2], P2.score_x, P2.score_y-48)
     if not config.debug_mode then --this is printed in the same space as the debug details
       gprint(spectators_string, P1.score_x, P1.score_y+177)
     end
+	
+	--rankings
     if match_type == "Ranked" then
       if global_current_room_ratings[my_player_number]
       and global_current_room_ratings[my_player_number].new then
@@ -918,23 +1156,31 @@ function main_net_vs()
         gprint(op_rating_to_print, P2.score_x, P2.score_y-16)
       end
     end
-    if not (P1 and P1.play_to_end) and not (P2 and P2.play_to_end) then
+ 
+	--render
+	if not (P1 and P1.play_to_end) and not (P2 and P2.play_to_end) then
       P1:render()
       P2:render()
       wait()
+	  
       if currently_spectating and menu_escape(K[1]) then
         print("spectator pressed escape during a game")
         my_win_count = 0
         op_win_count = 0
         json_send({leave_room=true})
-        return main_dumb_transition, {main_net_vs_lobby, "", 0, 0}
+		local ret = main_net_vs_lobby
+		if inNetplay then
+			ret = main_select_mode
+			json_send({logout=true})
+		end
+        return main_dumb_transition, {ret, "", 0, 0}
       end
+	  
       if not do_messages() then
         return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
       end
     end
 
-    --print(P1.CLOCK, P2.CLOCK)
     if (P1 and P1.play_to_end) or (P2 and P2.play_to_end) then
       if not P1.game_over then
         if currently_spectating then
@@ -977,6 +1223,7 @@ function main_net_vs()
       my_win_count = my_win_count + 1 -- leave this in
       outcome_claim = P1.player_number
     end
+	
     if end_text then
       analytics.game_ends()
       undo_stonermode()
@@ -1006,12 +1253,22 @@ function main_net_vs()
       print("also saving replay as replay.txt")
       write_replay_file()
       select_screen.character_select_mode = "2p_net_vs"
+	  
+	  if inNetplay then 
+		currently_spectating = false
+		select_screen.character_select_mode = "rr_netplay"
+		rr_net_return = true
+
+		return main_dumb_transition, {round_robin_lobby, end_text, 30, 30, winSFX}
+	  end
+	  
       if currently_spectating then
         return main_dumb_transition, {select_screen.main, end_text, 30, 30, winSFX}
       else
         return main_dumb_transition, {select_screen.main, end_text, 30, 180, winSFX}
       end
-    end
+    
+	end
   end
 end
 

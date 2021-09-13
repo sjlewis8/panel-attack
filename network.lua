@@ -87,12 +87,12 @@ local process_message = {
   H=function(s) got_H = true end,
   --N=function(s) error("Server told us to upgrade the game at burke.ro/panel.zip (for burke.ro server) or the TetrisAttackOnline Discord (for Jon's Server)") end,
   N=function(s) error(loc("nt_ver_err")) end,
-  P=function(s) P1.panel_buffer = P1.panel_buffer..s end,
-  O=function(s) P2.panel_buffer = P2.panel_buffer..s end,
-  U=function(s) P1.input_buffer = P1.input_buffer..s end,  -- used for P1's inputs when spectating.
-  I=function(s) P2.input_buffer = P2.input_buffer..s end,
-  Q=function(s) P1.gpanel_buffer = P1.gpanel_buffer..s end,
-  R=function(s) P2.gpanel_buffer = P2.gpanel_buffer..s end,
+  P=function(s) P1.panel_buffer = (P1.panel_buffer or "")..s end,  -- originally none of these had "or """ but was getting errors about concatenating with nil..
+  O=function(s) P2.panel_buffer = (P2.panel_buffer or "")..s end,
+  U=function(s) P1.input_buffer = (P1.input_buffer or "")..s end,  -- used for P1's inputs when spectating.
+  I=function(s) P2.input_buffer = (P2.input_buffer or "")..s end, 
+  Q=function(s) P1.gpanel_buffer = (P1.gpanel_buffer or "")..s end,
+  R=function(s) P2.gpanel_buffer = (P2.gpanel_buffer or "")..s end,
   E=function(s) net_send("F"..s) connection_up_time = connection_up_time +1 end,  --connection_up_time counts "E" messages, not seconds
   J=function(s)
     local current_message = json.decode(s)
@@ -119,6 +119,7 @@ function network_init(ip, network_port)
   TCP_sock:settimeout(0)
   got_H = false
   net_send("H"..VERSION)
+  print("H"..VERSION)
   assert(config.name and config.save_replays_publicly)
   local sent_json = {name=config.name, level=config.level, panels_dir=config.panels, 
   character=config.character, character_is_random=( ( config.character==random_character_special_value or characters[config.character]:is_bundle()) and config.character or nil ),
@@ -129,6 +130,7 @@ function network_init(ip, network_port)
 end
 
 function connection_is_ready()
+print(#this_frame_messages)
   return got_H and #this_frame_messages > 0
 end
 
@@ -140,7 +142,8 @@ function do_messages()
   end
   while true do
     local typ, data = get_message()
-    if typ then
+
+	if typ then
       if typ ~= "I" and typ ~= "U" and typ ~= "E" then
         print("Got message "..typ.." "..data)
       end

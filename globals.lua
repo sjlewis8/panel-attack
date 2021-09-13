@@ -116,7 +116,7 @@ config = {
 	-- analytics
 	enable_analytics              = false,
 	-- Save replays setting
-	save_replays_publicly         = "with my name",
+	save_replays_publicly         = "not at all",
 }
 
 current_use_music_from = "stage" -- either "stage" or "characters", no other values!
