@@ -336,6 +336,7 @@ end
 
 function rr_netplay_local_setup(ip, network_port)
   select_screen.character_select_mode = "rr_netplay_char_select"
+  global_rr.isSetup = false
   op_name = nil
   global_rr.num_players = 8
   inNetplay = true
