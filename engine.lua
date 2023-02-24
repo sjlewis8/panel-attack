@@ -14,7 +14,6 @@ local GARBAGE_TRANSIT_TIME = 90
 local clone_pool = {}
 local current_music_is_casual = false -- must be false so that casual music start playing
 
---d
 Stack = class(function(s, which, mode, panels_dir, speed, difficulty, player_number, isLPlayer)
 	s.isLPlayer = isLPlayer or false --for things that should only be performed once for all the characters (like the startup blips)
     s.character = config.character

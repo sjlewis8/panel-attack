@@ -7,7 +7,7 @@ local wait = coroutine.yield
 local current_page = 1
 
 -- fills the provided map based on the provided template and return the amount of pages. __Empty values will be replaced by character_ids
--- ie which buttons go where
+
 local function fill_map(template_map,map)
   local X,Y = 5,9
   local pages_amount = 0
@@ -31,7 +31,6 @@ local function fill_map(template_map,map)
         end
       end
     end
-	
   end
 end
 
@@ -96,9 +95,7 @@ local function resolve_character_random(state)
   if state.character_is_random ~= nil then
 
     if state.character_is_random == random_character_special_value then
-
       state.character = uniformly(characters_ids_for_current_theme)
-
       if characters[state.character]:is_bundle() then -- may pick a bundle
         state.character = uniformly(characters[state.character].sub_characters)
       end
@@ -124,7 +121,6 @@ local function resolve_stage_random(state)
 end
 
 function select_screen.main()
-
   if themes[config.theme].musics.select_screen then
     stop_the_music()
     find_and_add_music(themes[config.theme].musics, "select_screen")
@@ -144,30 +140,38 @@ function select_screen.main()
 
 
   local function refresh_loaded_and_ready(state_t)
-	local all_players_loaded = true
-	for p = 1, global_max_players do
-	  if state_t[p] and state_t[p].state then 
-		local state_p = state_t[p].state
-		if (not state_p.loaded) then all_players_loaded = false end
-		state_p.loaded = characters[state_p.character] and characters[state_p.character].fully_loaded and stages[state_p.stage] and stages[state_p.stage].fully_loaded
-	  end
-	end
-
-	if select_screen.character_select_mode == "2p_net_vs" then
-	  state_t[1].state.ready = state_t[1].state.wants_ready and state_t[1].state.loaded and state_t[2].state.loaded
-	elseif select_screen.character_select_mode == "round_robin" or select_screen.character_select_mode == "rr_netplay" then
-		for p = 1, global_rr.num_players do
-			state_t[p].state.ready = state_t[p].state.wants_ready and state_t[p].state.loaded and all_players_loaded
+		local all_players_loaded = true
+		
+		for p = 1, global_max_players do
+			if state_t[p] and state_t[p].state then 
+				local state_p = state_t[p].state
+				
+				if (not state_p.loaded) then 
+					all_players_loaded = false 
+				end
+				
+				state_p.loaded = characters[state_p.character] and characters[state_p.character].fully_loaded and stages[state_p.stage] and stages[state_p.stage].fully_loaded
+			end
 		end
-	else
-	  state_t[1].state.ready = state_t[1].state.wants_ready and state_t[1].state.loaded 
-	  if state_t[2].state then
-	    state_t[2].state.ready = state_t[2].state.wants_ready and state_t[2].state.loaded
-	  end
-	end
+
+		if select_screen.character_select_mode == "2p_net_vs" then
+			state_t[1].state.ready = state_t[1].state.wants_ready and state_t[1].state.loaded and state_t[2].state.loaded
+			
+		elseif select_screen.character_select_mode == "round_robin" or select_screen.character_select_mode == "rr_netplay" then
+		
+			for player = 1, global_rr.num_players do
+				state_t[player].state.ready = state_t[player].state.wants_ready and state_t[player].state.loaded and all_players_loaded
+			end
+			
+		else
+			state_t[1].state.ready = state_t[1].state.wants_ready and state_t[1].state.loaded 
+			
+			if state_t[2].state then
+				state_t[2].state.ready = state_t[2].state.wants_ready and state_t[2].state.loaded
+			end
+		end
   end
 
-  -- layout of the character select screen
   -- map is composed of special values prefixed by __ and character ids
   local template_map = {{"__Panels", "__Panels", "__Stage", "__Stage", "__Stage", "__Level", "__Level", "__Level", "__Ready"},
              {"__Random", "__Empty", "__Empty", "__Empty", "__Empty", "__Empty", "__Empty", "__Empty", "__Empty"},
@@ -177,7 +181,7 @@ function select_screen.main()
   local map = {}
   local inNetplay = select_screen.character_select_mode == "rr_netplay" or false 
   
-  --special set up for 2p netplay?
+
   if select_screen.character_select_mode == "2p_net_vs" then
     local opponent_connected = false
     local retries, retry_limit = 0, 250
@@ -195,28 +199,10 @@ function select_screen.main()
       retries = retries + 1
     end
 	
-    --[[ if room_number_last_spectated and retries >= retry_limit and currently_spectating then
-      -- request_spectate(room_number_last_spectated)
-      -- retries = 0
-      -- while not global_initialize_room_msg and retries < retry_limit do
-        -- for _,msg in ipairs(this_frame_messages) do
-          -- if msg.create_room or msg.character_select or msg.spectate_request_granted then
-            -- global_initialize_room_msg = msg
-          -- end
-        -- end
-        -- gprint("Lost connection.  Trying to rejoin...", unpack(main_menu_screen_pos))
-        -- wait()
-        -- if not do_messages() then
-        --   return main_dumb_transition, {main_select_mode, "Disconnected from server.\n\nReturning to main menu...", 60, 300}
-        -- end
-        -- retries = retries + 1
-      -- end
-    -- end ]] 
     if not global_initialize_room_msg then
       return main_dumb_transition, {main_select_mode, loc("ss_init_fail").."\n\n"..loc("ss_return"), 60, 300}
     end
     msg = global_initialize_room_msg
-	
     if msg.ratings then
         global_current_room_ratings = msg.ratings
     end
@@ -294,7 +280,6 @@ function select_screen.main()
 
   op_win_count = op_win_count or 0
 
-  --calculates ratings?
   if select_screen.character_select_mode == "2p_net_vs" then
     global_current_room_ratings = global_current_room_ratings or {{new=0,old=0,difference=0},{new=0,old=0,difference=0}}
     my_expected_win_ratio = nil
@@ -329,7 +314,6 @@ function select_screen.main()
     return json_send({leave_room=true})
   end
 
-  --links character names to the grid?
   -- be wary: name_to_xy_per_page is kinda buggy for larger blocks as they span multiple positions (we retain the last one), and is completely broken with __Empty
   local name_to_xy_per_page = {}
   local X,Y = 5,9
@@ -350,8 +334,8 @@ function select_screen.main()
   local cursor_data = {{position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}, {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}}
   
   if global_rr.num_players then 
-    for p = 3, global_rr.num_players do
-      cursor_data[p] = {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}
+    for player = 3, global_rr.num_players do
+      cursor_data[player] = {position=shallowcpy(name_to_xy_per_page[current_page]["__Ready"]),can_super_select=false,selected=false}
     end
   end
   
@@ -360,29 +344,41 @@ function select_screen.main()
     cursor_data[1].state = shallowcpy(global_my_state)
     global_my_state = nil
   else
-    cursor_data[1].state = {stage=config.stage, stage_is_random=( (config.stage==random_stage_special_value or stages[config.stage]:is_bundle()) and config.stage or nil ), 
-    character=config.character, character_is_random=( ( config.character==random_character_special_value or characters[config.character]:is_bundle()) and config.character or nil ), level=config.level, panels_dir=config.panels, cursor="__Ready", ready=false, ranked=config.ranked}
+    cursor_data[1].state = {stage=config.stage, 
+														stage_is_random=( (config.stage==random_stage_special_value or stages[config.stage]:is_bundle()) and config.stage or nil ), 
+														character=config.character, 
+														character_is_random=( ( config.character==random_character_special_value or characters[config.character]:is_bundle()) and config.character or nil ), 
+														level=config.level, panels_dir=config.panels, cursor="__Ready", ready=false, ranked=config.ranked}
   end
 
-  --rr setup 
+  -- setup for round-robin mode 
   if select_screen.character_select_mode == "round_robin" then
-	rrIsSetup = false
-	global_rr.matchup = "Winner" 
-	global_rr.win_mode = "Best of Three"
+		rrIsSetup = false
+		global_rr.matchup = "Winner" 
+		global_rr.win_mode = "Best of Three"
 	
-	for p = 1, global_rr.num_players do
-	  global_rr.win_count[p] = 0	
-      
-	  --this doesn't work yet, loads each player's previously played character
-	  if global_rr.states[p] ~= nil then 
-		cursor_data[p].state = deepcpy(global_rr.states[p])
-		global_rr.states[p] = nil
-	  else
-	    cursor_data[p].state = {stage = config.stage, stage_is_random = nil, character=config.character, character_is_random=nil, level=config.level, panels_dir=config.panels, cursor="__Ready", ready=false, ranked=config.ranked}
-	  end
-	end
+		for player = 1, global_rr.num_players do
+			global_rr.win_count[player] = 0	
+				
+			--this doesn't work yet, loads each player's previously played character
+			if global_rr.states[player] ~= nil then 
+				cursor_data[player].state = deepcpy(global_rr.states[player])
+				global_rr.states[player] = nil
+				
+			else
+				cursor_data[player].state = {stage = config.stage, 
+																			stage_is_random=( (config.stage==random_stage_special_value or stages[config.stage]:is_bundle()) and config.stage or nil ), 
+																			character=config.character, character_is_random=( ( config.character==random_character_special_value or characters[config.character]:is_bundle()) and config.character or nil ), 
+																			level=config.level, 
+																			panels_dir=config.panels, 
+																			cursor="__Ready", 
+																			ready=false, 
+																			ranked=config.ranked}
+			end
+		end
   end
 
+print(config.stage)
   if resolve_character_random(cursor_data[1].state) then
     character_loader_load(cursor_data[1].state.character)
   end
@@ -393,31 +389,38 @@ function select_screen.main()
   stage_loader_load(cursor_data[1].state.stage)
   add_client_data(cursor_data[1].state)
 
-  for p = 2, global_rr.num_players do 
+  for player = 2, global_rr.num_players do 
 	  if select_screen.character_select_mode ~= "1p_vs_yourself"  or select_screen.character_select_mode ~= "rr_netplay" then
-		if global_op_state ~= nil then
-		  cursor_data[p].state = shallowcpy(global_op_state)
-		  if (select_screen.character_select_mode ~= "2p_local_vs" or select_screen.character_select_mode ~= "round_robin") then
-			global_op_state = nil -- retains state of the second player, also: don't unload its character when going back and forth
-		  else
-			resolve_character_random(cursor_data[p].state)
-			cursor_data[p].state.character_display_name = characters[cursor_data[p].state.character].display_name
-			resolve_stage_random(cursor_data[p].state)
-		  end
-		else
-		  cursor_data[p].state = {stage=config.stage, stage_is_random=( (config.stage==random_stage_special_value or stages[config.stage]:is_bundle()) and config.stage or nil ),
-		   character=config.character, character_is_random=( ( config.character==random_character_special_value or characters[config.character]:is_bundle()) and config.character or nil ), level=config.level, panels_dir=config.panels, cursor="__Ready", ready=false, ranked=false}
-		  resolve_character_random(cursor_data[p].state)
-		  cursor_data[p].state.character_display_name = characters[cursor_data[p].state.character].display_name
-		  resolve_stage_random(cursor_data[p].state)
-		end
-		if cursor_data[p].state.character ~= random_character_special_value and not characters[cursor_data[p].state.character]:is_bundle() then -- while playing online, we'll wait for them to send us the new pick
-		  character_loader_load(cursor_data[p].state.character)
-		end
-		if cursor_data[p].state.stage ~= random_stage_special_value and not stages[cursor_data[p].state.stage]:is_bundle() then -- while playing online, we'll wait for them to send us the new pick
-		  stage_loader_load(cursor_data[p].state.stage)
-		end
-		add_client_data(cursor_data[p].state)
+			if global_op_state ~= nil then
+				cursor_data[player].state = shallowcpy(global_op_state)
+				
+				if (select_screen.character_select_mode ~= "2p_local_vs" or select_screen.character_select_mode ~= "round_robin") then
+					global_op_state = nil -- retains state of the second player,
+					
+				else
+					resolve_character_random(cursor_data[player].state)
+					cursor_data[player].state.character_display_name = characters[cursor_data[player].state.character].display_name
+					resolve_stage_random(cursor_data[player].state)
+				end
+				
+			else
+				cursor_data[player].state = {stage=config.stage, stage_is_random=( (config.stage==random_stage_special_value or stages[config.stage]:is_bundle()) and config.stage or nil ),
+				 character=config.character, character_is_random=( ( config.character==random_character_special_value or characters[config.character]:is_bundle()) and config.character or nil ), level=config.level, panels_dir=config.panels, cursor="__Ready", ready=false, ranked=false}
+				 
+				resolve_character_random(cursor_data[player].state)
+				cursor_data[player].state.character_display_name = characters[cursor_data[player].state.character].display_name
+				resolve_stage_random(cursor_data[player].state)
+			end
+			
+			if cursor_data[player].state.character ~= random_character_special_value and not characters[cursor_data[player].state.character]:is_bundle() then
+				character_loader_load(cursor_data[player].state.character)
+			end
+			
+			if cursor_data[player].state.stage ~= random_stage_special_value and not stages[cursor_data[player].state.stage]:is_bundle() then 
+				stage_loader_load(cursor_data[player].state.stage)
+			end
+			
+			add_client_data(cursor_data[player].state)
 	  end
   end
   
@@ -442,26 +445,26 @@ function select_screen.main()
   -- one per player, should we put them into cursor_data even though it's meaningless?
   local super_select_shaders = { love.graphics.newShader(super_select_pixelcode), love.graphics.newShader(super_select_pixelcode) }
 
-  --draws all the different kinds of buttons
   local function draw_button(x,y,w,h,str,halign,valign,no_rect, getXY) 
-    no_rect = no_rect or str == "__Empty" or str == "__Reserved" --border around box?
-    halign = halign or "center"
-    valign = valign or "top"
     local menu_width = Y*100
     local menu_height = X*80
     local spacing = 8
     local text_height = 13
     local x_padding = math.floor((canvas_width-menu_width)/2)
     local y_padding = math.floor((canvas_height-menu_height)/2)
+		
+		no_rect = no_rect or str == "__Empty" or str == "__Reserved"
+    halign = halign or "center"
+    valign = valign or "top"
 	
     set_color(unpack(colors.white))
 	
-	--grays out inactive players in round robin 
-	if(str:match('^[P]%d$')) then --begins with P and ends with a digit
-		if cursor_data[tonumber(string.sub(str,2,2))].active == false then
-			set_color(unpack(colors.gray))
+		-- grays out inactive players in round robin 
+		if(str:match('^[P]%d$')) then -- begins with P and ends with a digit
+			if cursor_data[tonumber(string.sub(str,2,2))].active == false then
+				set_color(unpack(colors.gray))
+			end
 		end
-	end
 	
     render_x = x_padding+(y-1)*100+spacing
     render_y = y_padding+(x-1)*100+spacing
@@ -472,26 +475,28 @@ function select_screen.main()
       grectangle("line", render_x, render_y, button_width, button_height)
     end
 	
-	--pictures of each player's chosen character
+
     local character = characters[str]
 	
-	if (select_screen.character_select_mode ~= "round_robin" and select_screen.character_select_mode ~= "rr_netplay") then  
-	  global_rr.num_players = 2 
-	end
-	
-	for p = 1, global_rr.num_players do 
-		if str == "P"..p then
-		  if cursor_data[p].state.character_is_random then
-			if cursor_data[p].state.character_is_random == random_character_special_value then
-			  character = random_character_special_value
-			else
-			  character = characters[cursor_data[p].state.character_is_random]
-			end
-		  else
-			character = characters[cursor_data[p].state.character]
-		  end
-		end 
-	end
+		if (select_screen.character_select_mode ~= "round_robin" and select_screen.character_select_mode ~= "rr_netplay") then  
+			global_rr.num_players = 2 
+		end
+		
+		for player = 1, global_rr.num_players do 
+			if str == "P"..player then
+				if cursor_data[player].state.character_is_random then
+					if cursor_data[player].state.character_is_random == random_character_special_value then
+						character = random_character_special_value
+					else
+						character = characters[cursor_data[player].state.character_is_random]
+					end
+					
+				else
+					character = characters[cursor_data[player].state.character]
+					
+				end
+			end 
+		end
 	
     local width_for_alignment = button_width
     local x_add,y_add = 0,0
@@ -571,17 +576,21 @@ function select_screen.main()
       local cur_pos_change_frequency = 8
       local draw_cur_this_frame = false
       local cursor_frame = 1
-	  local ready_freq = 2
+			local ready_freq = 2
 	  
-	  if select_screen.character_select_mode == "round_robin" and not inLobby then ready_freq = global_rr.num_players end
-      
-	  if ready then
-        if (math.floor(menu_clock/cur_blink_frequency))%ready_freq+1 == player_num%2+1 then  
+			if select_screen.character_select_mode == "round_robin" and not inLobby then
+				ready_freq = global_rr.num_players 
+			end
+				
+			if ready then
+				if (math.floor(menu_clock/cur_blink_frequency))%ready_freq+1 == player_num%2+1 then
           draw_cur_this_frame = true
         end
+				
       else
         draw_cur_this_frame = true
         cursor_frame = (math.floor(menu_clock/cur_pos_change_frequency)+player_num)%2+1
+				
       end
 	  
       if draw_cur_this_frame then
@@ -595,7 +604,6 @@ function select_screen.main()
       end
     end
 
-	--draws the "ready" thing
     local function draw_player_state(cursor_data,player_number)
 
       if characters[cursor_data.state.character] and not characters[cursor_data.state.character].fully_loaded then
@@ -607,7 +615,8 @@ function select_screen.main()
       local scale = 0.25*button_width/math.max(themes[config.theme].images.IMG_players[player_number]:getWidth(),themes[config.theme].images.IMG_players[player_number]:getHeight()) -- keep image ratio
       menu_drawf(themes[config.theme].images.IMG_players[player_number], render_x+1, render_y+button_height-1, "left", "bottom", 0, scale, scale )
  
-	  scale = 0.25*button_width/math.max(themes[config.theme].images.IMG_levels[cursor_data.state.level]:getWidth(),themes[config.theme].images.IMG_levels[cursor_data.state.level]:getHeight()) -- keep image ratio
+			scale = 0.25 * button_width / math.max(themes[config.theme].images.IMG_levels[cursor_data.state.level]:getWidth(),themes[config.theme].images.IMG_levels[cursor_data.state.level]:getHeight()) -- keep image ratio
+			
       menu_drawf(themes[config.theme].images.IMG_levels[cursor_data.state.level], render_x+button_width-1, render_y+button_height-1, "right", "bottom", 0, scale, scale )
     end
 
@@ -702,13 +711,12 @@ function select_screen.main()
       end
       -- background for thumbnail
       grectangle("line", render_x+padding_x, math.floor(render_y+y_padding-stage_dimensions[2]*0.5), stage_dimensions[1], stage_dimensions[2])
-        
       -- thumbnail or composed thumbnail (for bundles without thumbnails)
       if cursor_data.state.stage_is_random == random_stage_special_value 
         or ( cursor_data.state.stage_is_random and not stages[cursor_data.state.stage_is_random] ) 
         or ( cursor_data.state.stage_is_random and stages[cursor_data.state.stage_is_random] and stages[cursor_data.state.stage_is_random].images.thumbnail ) 
         or ( not cursor_data.state.stage_is_random and stages[cursor_data.state.stage].images.thumbnail ) then
-        local thumbnail = themes[config.theme].images.IMG_random_stage
+				local thumbnail = themes[config.theme].images.IMG_random_stage
         if cursor_data.state.stage_is_random and stages[cursor_data.state.stage_is_random] and stages[cursor_data.state.stage_is_random].images.thumbnail then
           thumbnail = stages[cursor_data.state.stage_is_random].images.thumbnail
         elseif not cursor_data.state.stage_is_random and stages[cursor_data.state.stage].images.thumbnail then
@@ -812,29 +820,36 @@ function select_screen.main()
       pstr = my_name
     elseif str == "P2" then
       draw_player_state(cursor_data[2],2)
-      pstr = op_name or ("Player 2")    
-	elseif str:match('^[P][345678]$') then
-	  local p_num = tonumber(str:sub(2,2,1))
-	  draw_player_state(cursor_data[p_num],p_num)
-	  pstr = "Player "..tostring(p_num)
-    elseif character and character ~= random_character_special_value then
-      pstr = character.display_name
-    elseif string.sub(str, 1, 2) ~= "__" then -- catch random_character_special_value case
-      pstr = str:gsub("^%l", string.upper)
-    end
+      pstr = op_name or ("Player 2")
+			
+		-- if players 3-8
+		elseif str:match('^[P][345678]$') then
+			local p_num = tonumber(str:sub(2,2,1))
+			
+			draw_player_state(cursor_data[p_num],p_num)
+			pstr = "Player "..tostring(p_num)
+			
+			elseif character and character ~= random_character_special_value then
+				pstr = character.display_name
+				
+			-- catch random_character_special_value case
+			elseif string.sub(str, 1, 2) ~= "__" then 
+				pstr = str:gsub("^%l", string.upper)
+				
+			end
 
-	local p_num = tonumber(str:sub(2,2,1))	
-	if select_screen.character_select_mode == "rr_netplay" and str:match('^[P][12345678]$') then
-		if cursor_data[p_num] and cursor_data[p_num].name then
-			pstr = cursor_data[p_num].name
-
+		-- draw cursor in netplay mode
+		local p_num = tonumber(str:sub(2,2,1))	
+		if select_screen.character_select_mode == "rr_netplay" and str:match('^[P][12345678]$') then
+			if cursor_data[p_num] and cursor_data[p_num].name then
+				pstr = cursor_data[p_num].name
+			end
 		end
-	end
 	
 
 	--drawing cursor(s)
     if x ~= 0 then
-		--P1
+			-- Player 1
       if cursor_data[1].state and cursor_data[1].state.cursor == str and select_screen.character_select_mode ~= "rr_netplay"
         and ( (str ~= "__Empty" and str ~= "__Reserved") or ( cursor_data[1].position[1] == x and cursor_data[1].position[2] == y ) ) then
         draw_cursor(button_height, spacing, 1, cursor_data[1].state.ready)
@@ -842,7 +857,9 @@ function select_screen.main()
           draw_super_select(1)
         end
       end 
-      if (select_screen.character_select_mode == "2p_net_vs" or select_screen.character_select_mode == "2p_local_vs" or select_screen.character_select_mode == "round_robin")
+			
+			-- Player 2
+			if (select_screen.character_select_mode == "2p_net_vs" or select_screen.character_select_mode == "2p_local_vs" or select_screen.character_select_mode == "round_robin")
         and cursor_data[2].state and cursor_data[2].state.cursor == str
         and ( (str ~= "__Empty" and str ~= "__Reserved") or ( cursor_data[2].position[1] == x and cursor_data[2].position[2] == y ) ) then
         draw_cursor(button_height, spacing, 2, cursor_data[2].state.ready)
@@ -850,30 +867,33 @@ function select_screen.main()
           draw_super_select(2)
         end
       end
-	  for p = 3, global_rr.num_players do
-		  if (select_screen.character_select_mode == "round_robin") 
-		   and cursor_data[p].state and cursor_data[p].state.cursor == str
-			and ( (str ~= "__Empty" and str ~= "__Reserved") or ( cursor_data[p].position[1] == x and cursor_data[p].position[2] == y ) ) then
-			draw_cursor(button_height, spacing, p, cursor_data[p].state.ready)
-			if cursor_data[p].can_super_select then
-			  draw_super_select(p)
+			
+			-- Player 3-8 for offline round robin mode
+			for player = 3, global_rr.num_players do
+				if (select_screen.character_select_mode == "round_robin") and cursor_data[player].state and cursor_data[player].state.cursor == str and ( (str ~= "__Empty" and str ~= "__Reserved") or ( cursor_data[player].position[1] == x and cursor_data[player].position[2] == y ) ) then
+				
+					draw_cursor(button_height, spacing, player, cursor_data[player].state.ready)
+					if cursor_data[player].can_super_select then
+						draw_super_select(player)
+					end
+					
+				end
 			end
-		  end
-	  end
     end
 	
-	--rr netplay cursors
-	if select_screen.character_select_mode == "rr_netplay" then 
-	  for p = 1, 8 do
-	  	if cursor_data[p] and cursor_data[p].visible and cursor_data[p].state and cursor_data[p].state.cursor == str
-		and (( str ~= "__Empty" and str ~= "__Reserved") or (cursor_data[p].position[1] == x and cursor_data[p].position[2] == y)) then
-		 draw_cursor(button_height, spacing, p, cursor_data[p].state.ready)
-		  if cursor_data[p].can_super_select then
-		    draw_super_select(p)
-		  end	  
+		-- all round robin netplay cursors
+		if select_screen.character_select_mode == "rr_netplay" then 
+			for player = 1, 8 do
+				if cursor_data[player] and cursor_data[player].visible and cursor_data[player].state and cursor_data[player].state.cursor == str and (( str ~= "__Empty" and str ~= "__Reserved") or (cursor_data[player].position[1] == x and cursor_data[player].position[2] == y)) then
+					
+					draw_cursor(button_height, spacing, player, cursor_data[player].state.ready)
+					if cursor_data[player].can_super_select then
+						draw_super_select(player)
+					end	  
+					
+				end
+			end
 		end
-	  end
-	end
 	
     if str ~= "__Empty" and str ~= "__Reserved" then
       local loc_str = {Level= loc("level"), Mode=loc("mode"), Stage=loc("stage"), Panels=loc("panels"), Ready=loc("ready"), Random=loc("random"), Leave=loc("leave")}
@@ -881,17 +901,17 @@ function select_screen.main()
       gprintf( not to_p and pstr or to_p, render_x+x_add, render_y+y_add,width_for_alignment,halign)
     end
 	
-	if getXY then 
-		return render_x, render_y 
-	end
-
+		if getXY then 
+			return render_x, render_y 
+		end
+		
   end
 
   print("got to LOC before net_vs_room character select loop")
   menu_clock = 0
 
   local v_align_center = { __Ready=true, __Random=true, __Leave=true }
-  local is_special_value = { __Leave=true, __Level=true, __Panels=true, __Ready=true, __Stage=true, __Mode=true, __Random=true } 
+  local is_special_value = { __Leave=true, __Level=true, __Panels=true, __Ready=true, __Stage=true, __Mode=true, __Random=true }
 
   while true do
 
@@ -924,7 +944,6 @@ function select_screen.main()
       end
     end
 
-	--netplay stuff
     if select_screen.character_select_mode == "2p_net_vs" then
       local messages = server_queue:pop_all_with("win_counts", "menu_state", "ranked_match_approved", "leave_room", "match_start", "ranked_match_denied")
       if global_initialize_room_msg then
@@ -949,8 +968,8 @@ function select_screen.main()
             character_loader_load(cursor_data[2].state.character)
             stage_loader_load(cursor_data[2].state.stage)
           end
-           --refresh_loaded_and_ready(cursor_data[1],cursor_data[2])
-		    refresh_loaded_and_ready(cursor_data)
+
+					refresh_loaded_and_ready(cursor_data)
         end
         if msg.ranked_match_approved then
           match_type = "Ranked"
@@ -1072,7 +1091,6 @@ function select_screen.main()
       end
     end
 
-	--ranking stuff
     local my_rating_difference = ""
     local op_rating_difference = ""
     if current_server_supports_ranking and not global_current_room_ratings[my_player_number].placement_match_progress then
@@ -1092,7 +1110,6 @@ function select_screen.main()
       end
     end
    
-    --compiles a string with current rating?
     local function get_player_state_str(player_number, rating_difference, win_count, op_win_count, expected_win_ratio)
       local state = ""
       if current_server_supports_ranking then
@@ -1128,23 +1145,25 @@ function select_screen.main()
       return state
     end
 	
-	--draws P1 and the thing that says "wins: x" etc.
     draw_button(0,1,1,1,"P1")
     draw_button(0,2,2,1,get_player_state_str(my_player_number,my_rating_difference,my_win_count,op_win_count,my_expected_win_ratio),"left","top",true)
 	
 	--draws P2 and stats
     if select_screen.character_select_mode ~= "round_robin" then 
-	  if cursor_data[1].state and op_name then 
-	  draw_button(0,3,1,1,"P2")
-      draw_button(0,4,2,1,get_player_state_str(op_player_number,op_rating_difference,op_win_count,my_win_count,op_expected_win_ratio),"left","top",true)
-      --state = state.." "..json.encode(op_state)
-      end
-	else 
-	  local spacing = 8 / global_rr.num_players
-	  for p = 2, global_rr.num_players do
-	    draw_button(0, p *spacing,1,1,"P"..p)
-	  end
-	end
+			
+			-- draw player win statistics
+			if cursor_data[1].state and op_name then 
+				draw_button(0, 3, 1, 1, "P2")
+				draw_button(0, 4, 2, 1, get_player_state_str(op_player_number, op_rating_difference, op_win_count,my_win_count, op_expected_win_ratio), "left", "top", true)
+			end
+			
+		else 
+			local spacing = 8 / global_rr.num_players
+			
+			for player = 2, global_rr.num_players do
+				draw_button(0, player * spacing, 1, 1, "P"..player)
+			end
+		end
 
 	--prints if net play game is ranked or casual
     if select_screen.character_select_mode == "2p_net_vs" then
@@ -1162,7 +1181,7 @@ function select_screen.main()
     end
    
     --prints which page of buttons is being shown
-	if pages_amount ~= 1 then
+		if pages_amount ~= 1 then
       gprintf(loc("page").." "..current_page.."/"..pages_amount, 0, 660, canvas_width, "center")
     end
 	
@@ -1185,7 +1204,6 @@ function select_screen.main()
       cursor.can_super_select = character and ( character.stage or character.panels )
     end
 
-	--chooses the sprites of the panels
     local function change_panels_dir(panels_dir,increment)
       local current = 0
       for k,v in ipairs(panels_ids) do
@@ -1204,7 +1222,6 @@ function select_screen.main()
       return panels_dir
     end
 
-	--chooses the stage to play
     local function change_stage(state,increment)
       -- random_stage_special_value is placed at the end of the list and is 'replaced' by a random pick and stage_is_random=true
       local current = nil
@@ -1242,7 +1259,6 @@ function select_screen.main()
       print("stage and stage_is_random: "..state.stage.." / "..(state.stage_is_random or "nil"))
     end
 
-	--quits the selection menu
     local function on_quit()
       if themes[config.theme].musics.select_screen then
         stop_the_music()
@@ -1257,7 +1273,7 @@ function select_screen.main()
     end 
 
     local function on_select(cursor,super)
-      local noisy = false --plays the selection sound effect
+      local noisy = false
       local selectable = {__Stage=true, __Panels=true, __Level=true, __Ready=true}
       if selectable[cursor.state.cursor] then
         if cursor.selected and cursor.state.cursor == "__Stage" then
@@ -1288,7 +1304,7 @@ function select_screen.main()
         cursor.state.character_is_random = nil
         cursor.state.character = cursor.state.cursor
 		
-		--what's a bundle?
+
         if characters[cursor.state.character]:is_bundle() then -- may pick a bundle
           cursor.state.character_is_random = cursor.state.character
           cursor.state.character = uniformly(characters[cursor.state.character_is_random].sub_characters)
@@ -1297,14 +1313,12 @@ function select_screen.main()
         cursor.state.character_display_name = characters[cursor.state.character].display_name
         local character = characters[cursor.state.character]
 		
-		--selection sound effect
         if not cursor.state.character_is_random then
           noisy = character:play_selection_sfx()
         elseif characters[cursor.state.character_is_random] then
           noisy = characters[cursor.state.character_is_random]:play_selection_sfx()
         end
 
-		--loads the character
         character_loader_load(cursor.state.character)
 		
         if super then
@@ -1327,20 +1341,20 @@ function select_screen.main()
       return noisy
     end
 
-	--variable_step forces a function to be done at 60Hz
     variable_step(function()
-	
       menu_clock = menu_clock + 1
 
       character_loader_update()
       stage_loader_update()
 
-	  refresh_loaded_and_ready(cursor_data)
+			refresh_loaded_and_ready(cursor_data)
 
       local up,down,left,right = {-1,0}, {1,0}, {0,-1}, {0,1}
-	  --loops over each cursor's position and does what needs to be done
+
       if not currently_spectating then
         local KMax = 1
+				
+				-- increases maximum players to the round robin maximum
         if select_screen.character_select_mode == "2p_local_vs" or select_screen.character_select_mode == "round_robin" then
           KMax = global_rr.num_players
         end
@@ -1352,16 +1366,16 @@ function select_screen.main()
           if menu_prev_page(k) then
             if not cursor.selected then current_page = bound(1, current_page-1, pages_amount) end
         
-  		  elseif menu_next_page(k) then
+					elseif menu_next_page(k) then
             if not cursor.selected then current_page = bound(1, current_page+1, pages_amount) end
           
-		  elseif menu_up(k) then
+					elseif menu_up(k) then
             if not cursor.selected then move_cursor(cursor,up) end
           
-		  elseif menu_down(k) then
+					elseif menu_down(k) then
             if not cursor.selected then move_cursor(cursor,down) end
           
-		  elseif menu_left(k) then
+					elseif menu_left(k) then
             if cursor.selected then
               if cursor.state.cursor == "__Level" then
                 cursor.state.level = bound(1, cursor.state.level-1, #level_to_starting_speed) --which should equal the number of levels in the game
@@ -1373,7 +1387,7 @@ function select_screen.main()
             end
             if not cursor.selected then move_cursor(cursor,left) end
           
-		  elseif menu_right(k) then
+					elseif menu_right(k) then
             if cursor.selected then
               if cursor.state.cursor == "__Level" then
                 cursor.state.level = bound(1, cursor.state.level+1, #level_to_starting_speed) --which should equal the number of levels in the game
@@ -1385,7 +1399,7 @@ function select_screen.main()
             end
             if not cursor.selected then move_cursor(cursor,right) end
           
-		  else
+					else
             -- code below is bit hard to read: basically we are storing the default sfx callbacks until it's needed (or not!) based on the on_select method
             local long_enter, long_enter_callback = menu_long_enter(k, true)
             local normal_enter, normal_enter_callback = menu_enter(k, true)
@@ -1412,7 +1426,6 @@ function select_screen.main()
           end
         end
 
-		-- saves P1s choice for next time
         -- update config, does not redefine it
         config.character = cursor_data[1].state.character_is_random and cursor_data[1].state.character_is_random or cursor_data[1].state.character
         config.stage = cursor_data[1].state.stage_is_random and cursor_data[1].state.stage_is_random or cursor_data[1].state.stage
@@ -1420,33 +1433,39 @@ function select_screen.main()
         config.ranked = cursor_data[1].state.ranked
         config.panels = cursor_data[1].state.panels_dir
 		
-		-- random character don't work well with rr because it doesn't go back to character select before playing a match so this
-		-- just assigns a random character immediately after the character select screen. It doesn't save "__RandomCharacter" or whatever as the player's default choice for next time"..
-		rr_override_character = cursor_data[1].state.character
-		if cursor_data[1].state.character_is_random and (select_screen.character_select_mode == "rr_netplay_char_select" or select_screen.character_select_mode == "round_robin") then 
-		  cursor_data[1].state.character_is_random = nil 
-		end
+				-- random character don't work well with round robin mode because it doesn't go back to character select before playing a match so this
+				-- just assigns a random character immediately after the character select screen. It doesn't save "__RandomCharacter" as the player's default choice for next time"..
+				rr_override_character = cursor_data[1].state.character
+				
+				-- check if random character needs to handled
+				if cursor_data[1].state.character_is_random and (select_screen.character_select_mode == "rr_netplay_char_select" or select_screen.character_select_mode == "round_robin") then 
+					cursor_data[1].state.character_is_random = nil 
+				end
 
-        if select_screen.character_select_mode == "2p_local_vs" then -- this is registered for future entering of the lobby
+				-- set up character select for local vs mode
+        if select_screen.character_select_mode == "2p_local_vs" then
           global_op_state = shallowcpy(cursor_data[2].state)
           global_op_state.character = global_op_state.character_is_random and global_op_state.character_is_random or global_op_state.character
           global_op_state.stage = global_op_state.stage_is_random and global_op_state.stage_is_random or global_op_state.stage
           global_op_state.wants_ready = false
         end
 
+				-- send current menu state to server when playing online
         if select_screen.character_select_mode == "2p_net_vs" and not content_equal(cursor_data[1].state, prev_state) and not currently_spectating then
           json_send({menu_state=cursor_data[1].state})
         end
+				
         prev_state = shallowcpy(cursor_data[1].state)
 
-      else -- (we are spectating)
-        if menu_escape(K[1]) then
-		  if select_screen.character_select_mode == "rr_netplay_char_select" then
-		    ret = main_select_mode
-		  else 
-		    do_leave()
-            ret = {main_net_vs_lobby}
-		  end
+			-- in spectating mode
+			else
+				if menu_escape(K[1]) then
+					if select_screen.character_select_mode == "rr_netplay_char_select" then
+						ret = main_select_mode
+					else 
+						do_leave()
+						ret = {main_net_vs_lobby}
+					end
         end
       end
     end)
@@ -1455,750 +1474,826 @@ function select_screen.main()
       return unpack(ret)
     end
 	
-	
---remember, will have to do resolve_stage_random at some point	
-	function round_robin_lobby()
-
-		local ret = nil
-		local l_player, r_player = nil, nil	
-		local lobby_state_changed = false
-		local netPlayerNum = init_cursor_number
-		local inNetplay = select_screen.character_select_mode == "rr_netplay" or false 
-		
-		local function init_players()
-			for p = 1, global_rr.num_players do
-				cursor_data[p].state.ready = nil
-				cursor_data[p].ready = false
-				cursor_data[p].selected = false
-				cursor_data[p].active = true --false if sitting out
-				global_rr.win_count[p] = 0
-			end				
-		end	
-
-		local function clear_player(p)
-		  if cursor_data[p] then 
-			cursor_data[p].ready = nil
-			cursor_data[p].state.wants_ready = nil
-			cursor_data[p].selected = nil
-			cursor_data[p].active = nil
-			cursor_data[p].state.level = nil
-			cursor_data[p].state.character = nil
-			cursor_data[p].state.character_display_name = nil
-			cursor_data[p].state.cursor = nil
-			cursor_data[p].name = nil
-			cursor_data[p].visible = false
-			global_rr.win_count[p] = 0	
-		  end
-		end
-		
-		local function fill_player_queue()
-			local chosen_players = {}
+		-- main lobby when playing round robin mode
+		function round_robin_lobby()
+			local ret = nil
+			local l_player, r_player = nil, nil	
+			local lobby_state_changed = false
+			local netPlayerNum = init_cursor_number
+			local inNetplay = select_screen.character_select_mode == "rr_netplay" or false 
 			
-			for i = 1, global_rr.num_players do
-				local p
-				
-				repeat
-					p = math.random(global_rr.num_players)
-				until chosen_players[p] == nil 
-				
-				if cursor_data[p].active then
-					global_rr.player_order:push(p)
-				end
-				
-				chosen_players[p] = true				
-			end
-		end
-		
-		local function pick_now_playing()		
-			--chooses left player
-			if (not l_player or l_player == nobody) then	
-				if global_rr.win_count.last_winner and global_rr.matchup == "Winner" and r_player ~= global_rr.win_count.last_winner and cursor_data[global_rr.win_count.last_winner].active then
-					l_player = global_rr.win_count.last_winner
-				else
-					if global_rr.player_order:len() == 0 then
-						fill_player_queue()
-					end
-					
-					if global_rr.player_order:len() > 0 then
-						repeat
-							l_player = global_rr.player_order:pop()
-							
-							if cursor_data[l_player].active == false or l_player == r_player then 
-								l_player = nobody -- =nobody if no player is free to play (ie all sitting out) 
-							end
-						until l_player or global_rr.player_order:len() < 1	
-					end 
-				end
-			end
-
-			--chooses right player
-			if (not r_player or r_player == nobody) then
-				if global_rr.win_count.last_winner and global_rr.matchup == "Winner" and l_player ~= global_rr.win_count.last_winner and cursor_data[global_rr.win_count.last_winner].active then
-					r_player = global_rr.win_count.last_winner
-				else
-					if global_rr.player_order:len() == 0 then
-						fill_player_queue()
-					end
-					
-					if global_rr.player_order:len() > 0 then				
-						repeat
-							r_player = global_rr.player_order:pop()
-							
-							if cursor_data[r_player].active == false or r_player == l_player then 
-								r_player = nobody 
-							end
-						until r_player or global_rr.player_order:len() < 1
-					end
-				end
-			end		
-		end
-
-		local function send_lobby_state()
-
-			cursor = cursor_data[netPlayerNum]
-			
-			sent_json = {rr_state = {cursor_state = cursor.state.cursor, 
-									cursor_active = cursor.active, 
-									cursor_selected = cursor.selected, 
-									cursor_ready = (cursor.ready and cursor.state.ready),
-									}}
-			json_send(sent_json)
-		end
-
-		local function net_update_lobby()
-			local got_msg = false
-		
-			repeat
-				local msg = server_queue:pop_next_with("rr_lobby_state")
-				if msg then 
-					got_msg = true
-		  
-					for i = 1, 8 do
-						if i ~= netPlayerNum then
-							clear_player(i)
-						end
-					end											
-					
-					for _, v in pairs(msg.rr_lobby_state) do
-						local p = v.player_number
-				
-						if p ~= netPlayerNum then 
-							cursor_data[p].ready = v.cursor_ready
-							cursor_data[p].selected = v.cursor_selected
-							cursor_data[p].active = v.cursor_active
-							cursor_data[p].state.level = v.level
-							cursor_data[p].state.character = v.character
-							cursor_data[p].state.stage = v.stage
-							cursor_data[p].state.character_display_name = v.character_display_name
-							cursor_data[p].state.cursor = v.cursor_state
-							cursor_data[p].name = v.player_name
-							cursor_data[p].visible = true
-							global_rr.win_count[p] = v.wins
-							
-							if not characters[cursor_data[p].state.character].fully_loaded then 
-							    character_loader_load(cursor_data[p].state.character)
-								          character_loader_wait()
-							end
-							
-							if cursor_data[p].state.stage ~= "__RandomStage" and not stages[cursor_data[p].state.stage].fully_loaded then
-								stage_loader_load(cursor_data[p].state.stage)
-							end
-						else
-	--						if rr_net_return then 
-								cursor_data[p].state.cursor = v.cursor_state
-								rr_net_return = false
-	--						end
-							cursor_data[p].name = v.player_name -- server may rename player
-							global_rr.win_count[p] = v.wins
-						end
-					end 
-
-					l_player = msg.rr_mode.l_player
-					r_player = msg.rr_mode.r_player
-
-					global_rr.win_mode = msg.rr_mode.rr_win_mode or ""
-					global_rr.matchup = msg.rr_mode.rr_play_mode or ""	
-
-				end
-			until not msg	
-			
-			refresh_loaded_and_ready(cursor_data)			
-
-			return got_msg
-		end
-
-		--set up the scrolling background
-		local bg_x, bg_y = 0, 0
-		scrolling_bg = themes[config.theme].images.rr_lobby
-		scrolling_bg:setWrap("repeat", "repeat")
-		bg_quad = love.graphics.newQuad(0, 0, canvas_width, canvas_height, scrolling_bg:getWidth(), scrolling_bg:getHeight())
-
-		--only should be done the first time
-		if not global_rr.isSetup then
-			init_players()
-			fill_player_queue()
-		end
-		
-		if inNetplay and not global_rr.isSetup then 
-
-			cursor_data[netPlayerNum] = deepcpy(cursor_data[1])
-			send_lobby_state()		
-			my_name = config.name or my_name or ""
-		
-			global_rr.num_players = global_max_players
-			for i = 1, global_max_players do
-				cursor_data[i].visible = false
-			end
-		end
-
-		if inNetplay then
-			local got_lobby = false
-			local i = 0
-			repeat 
-				got_lobby = net_update_lobby()
-				i = i + 1
-			until got_lobby or i > 50
-			
-			P1 = {panel_buffer="", gpanel_buffer=""}
-			P2 = {panel_buffer="", gpanel_buffer=""}
-		end	
-		
-		--init netplay variables
-		if inNetplay and not global_rr.isSetup then
-		
-			cursor_data[netPlayerNum].state.ready = nil
-			cursor_data[netPlayerNum].ready = false
-			cursor_data[netPlayerNum].state.wants_ready = false
-			cursor_data[netPlayerNum].selected = false
-			cursor_data[netPlayerNum].active = true
-			cursor_data[netPlayerNum].visible = true
-			cursor_data[netPlayerNum].name = my_name
-			cursor_data[netPlayerNum].state.cursor = "Sit Out"
-			
-			send_lobby_state()
-		end
-
-		
-		if not inNetplay then
-			pick_now_playing()
-			
-			--starting positions of the cursors
-			for p = 1, global_rr.num_players do
-				if p == l_player then 
-					cursor_data[p].state.cursor = "Ready Left Player"
-				elseif p == r_player then
-					cursor_data[p].state.cursor = "Ready Right Player"
-				else
-					cursor_data[p].state.cursor = "Sit Out"
-				end			
-			end			
-		end
-		
-		global_rr.isSetup = true
-			
-		--main loop
-		while (not ret) do 
-			local function scroll_background()
-				bg_x = bg_x-0.4
-				bg_y = bg_y-0.6
-				bg_quad:setViewport(bg_x, bg_y, canvas_width, canvas_height)
-				menu_drawq(scrolling_bg, bg_quad, 0, 0, 0, 1, 1)
+			-- initialize each player
+			local function init_players()
+				for player = 1, global_rr.num_players do
+					cursor_data[player].state.ready = nil
+					cursor_data[player].ready = false
+					cursor_data[player].selected = false
+					cursor_data[player].active = true --false if sitting out
+					global_rr.win_count[player] = 0
+				end				
 			end	
-			
-			local function draw_interface()
-				--draw current players
-				for p = 1, global_rr.num_players do
-				
-					if inNetplay and not cursor_data[p].visible then
-						pstr = "__Empty"
-					else
-						pstr = "P"..p
-					end
-	
-					if p <= 4 then
-						draw_button((p - 0.5) * 1.25, 0, 1, 1, pstr)
-						if pstr ~= "__Empty" then 
-							draw_button((p - 0.5) * 1.25, 1, 1, 1, "Wins: "..tostring(global_rr.win_count[p] or 0), "center", "center", true);
-						end
-					else 
-						draw_button((p - 4 - 0.5) * 1.25, 3, 1, 1, pstr)
-						if pstr ~= "__Empty" then 
-							draw_button((p - 4 - 0.5) * 1.25, 4, 1, 1, "Wins: "..tostring(global_rr.win_count[p] or 0), "center", "center", true);
-						end
-					end
+
+			-- discard all of a player's state data
+			local function clear_player(player)
+				if cursor_data[player] then 
+					cursor_data[player].ready = nil
+					cursor_data[player].state.wants_ready = nil
+					cursor_data[player].selected = nil
+					cursor_data[player].active = nil
+					cursor_data[player].state.level = nil
+					cursor_data[player].state.character = nil
+					cursor_data[player].state.character_display_name = nil
+					cursor_data[player].state.cursor = nil
+					cursor_data[player].name = nil
+					cursor_data[player].visible = false
+					global_rr.win_count[player] = 0	
 				end
-				
-				--draw ready buttons and ready image if selected
-				local pl_x, pl_y = draw_button(0.5, 5, 2, 2, "Ready Left Player", false, false, false, true)
-				if l_player and l_player ~= nobody then
-					local pstr = "PLAYER "..tostring(l_player)
-					if inNetplay then pstr = cursor_data[l_player].name end
-
-					draw_button(0.5, 5, 2, 2, pstr, "center", "center")
-					
-					if(cursor_data[l_player].ready == true) then
-						menu_drawf(themes[config.theme].images.IMG_ready, pl_x + 125, pl_y + 50, "center", "center", math.pi/4, 2, 2)
-					end
-				else
-					draw_button(0.5, 5, 2, 2, "No free player", "center", "center")
-				end
-				
-				local pr_x, pr_y = draw_button(0.5, 8, 2, 2, "Ready Right Player", false, false, false, true)
-				if r_player and r_player ~= nobody then 
-					local pstr = "PLAYER "..tostring(r_player)
-					if inNetplay then pstr = cursor_data[r_player].name end				
-				
-					draw_button(0.5, 8, 2, 2, pstr, "center", "center") 
-					
-					if(cursor_data[r_player].ready == true) then
-						menu_drawf(themes[config.theme].images.IMG_ready, pr_x + 125, pr_y + 50, "center", "center", math.pi/4, 2, 2)
-					end					
-				else
-					draw_button(0.5, 8, 2, 2, "No free player", "center", "center")
-				end
-				 
-				--draw option buttons
-				draw_button(3.5*1.25, 8, 1, 1, "Sit Out")
-				draw_button(3.5*1.25, 9, 1, 1, "Leave")
-
-				local padding = (global_rr.matchup == "Even") and "  " or ""
-				draw_button(3.5*1.25, 7, 1, 1, "Next Player")
-				gprintf(padding.."<-"..string.upper(global_rr.matchup).."->", 801, 550)
-				
-				draw_button(3.5*1.25, 5, 2, 1, "Game Type")
-				gprint("<-"..string.upper(global_rr.win_mode).."->", 630, 550)
-			end		
-
-			if inNetplay then 
-				net_update_lobby()
-			end	
-			
-			scroll_background()
-			draw_interface()	
-
-			if not inNetplay then 
-				pick_now_playing()		
 			end
 			
-			if inNetplay and not do_messages() then
-				ret = main_select_mode
-			end	
-						
-			variable_step(function () 
-				menu_clock = menu_clock + 1
-
-				local function move_lobby_cursor(cursor, dir, player)
-					local item = cursor.state.cursor
-					local prev = cursor.state.cursor
-
-					lobby_state_changed = true
-
-					if dir == "left" then 
-						if cursor.state.cursor == "Ready Left Player" 		then cursor.state.cursor = "Ready Right Player"
-						elseif cursor.state.cursor == "Ready Right Player"  then cursor.state.cursor = "Ready Left Player"
-						elseif cursor.state.cursor == "Sit Out" 			then cursor.state.cursor = "Next Player" 
-						elseif cursor.state.cursor == "Next Player" 		then cursor.state.cursor = "Game Type"
-						elseif cursor.state.cursor == "Game Type" 			then cursor.state.cursor = "Leave"
-						elseif cursor.state.cursor == "Leave" 				then cursor.state.cursor = "Sit Out" 
-						end
-					end
-
-					if dir == "right" then 
-						if cursor.state.cursor == "Ready Left Player" 		then cursor.state.cursor = "Ready Right Player" 
-						elseif cursor.state.cursor == "Ready Right Player" 	then cursor.state.cursor = "Ready Left Player"
-						elseif cursor.state.cursor == "Sit Out" 			then cursor.state.cursor = "Leave"
-						elseif cursor.state.cursor == "Leave"	 			then cursor.state.cursor = "Game Type"
-						elseif cursor.state.cursor == "Game Type" 			then cursor.state.cursor = "Next Player"
-						elseif cursor.state.cursor == "Next Player" 		then cursor.state.cursor = "Sit Out"
-						elseif cursor.state.cursor == "Leave" 				then cursor.state.cursor = "Next Player"
-						end
-					end
-					
-					if dir == "up" or dir == "down" then
-						if cursor.state.cursor == "Ready Left Player" or cursor.state.cursor == "Ready Right Player" then 
-							cursor.state.cursor = "Sit Out" 
-						elseif cursor.state.cursor == "Sit Out" or cursor.state.cursor == "Leave" or cursor.state.cursor == "Next Player" or cursor.state.cursor == "Game Type" then
-							if player == l_player then cursor.state.cursor = "Ready Left Player" end
-							if player == r_player then cursor.state.cursor = "Ready Right Player" end
-						end
-					end
-					
-					--if the player isn't playing... don't let them try to choose a ready button
-					if cursor.state.cursor == "Ready Left Player" and (not (player == l_player)) then cursor.state.cursor = prev end
-					if cursor.state.cursor == "Ready Right Player" and (not (player == r_player)) then cursor.state.cursor = prev end
-				end
-
-				-- handles each player's keyboard input
+			-- adds all players to the list that draws the next player to play
+			local function fill_player_queue()
+				local chosen_players = {}
+				
 				for i = 1, global_rr.num_players do
-				  local k = K[i]
-				  local cursor = cursor_data[i]				 		  
-				  
-				  if inNetplay then
-					k = K[1]
-					cursor = cursor_data[netPlayerNum]
-					i = netPlayerNum
-				  end
-				  
-				  if menu_right(k) and (not cursor.selected) then move_lobby_cursor(cursor, "right", i) end
-				  if menu_left(k)  and (not cursor.selected) then move_lobby_cursor(cursor, "left", i) end 
-				  if menu_up(k) and (not cursor.selected) then move_lobby_cursor(cursor, "up", i) end
-				  if menu_down(k) and (not cursor.selected) then move_lobby_cursor(cursor, "down", i) end
-
-				  --if manipulating the next player option button
-				  if (menu_right(k) or menu_left(k)) and cursor.selected and cursor.state.cursor == "Next Player" then
-				    global_rr.player_order:clear()
-					if global_rr.matchup == "Winner" then 
-						global_rr.matchup = "Even" 
-					elseif global_rr.matchup == "Even" then 
-						global_rr.matchup = "Winner" 
-					end
-				  end
-			  
-				  if (menu_right(k) or menu_left(k)) and cursor.selected and cursor.state.cursor == "Game Type" then
-					if global_rr.win_mode == "Best of Three" then 
-						global_rr.win_mode = "Single Match" 
-					elseif global_rr.win_mode == "Single Match" then 
-						global_rr.win_mode = "Best of Three" 
-					end
-				  end
-				  
-				  if menu_enter(k, false) then
-					lobby_state_changed = true
+					local player
 					
-					if not cursor.selected then 
-					  if inNetplay and cursor.state.cursor == "Game Type" then
-						json_send({change_win_mode = true})
-					  elseif inNetplay and cursor.state.cursor == "Next Player" then
-					    json_send({change_play_mode = true})
-					  else
-						cursor.selected = true
-						if ((cursor.state.cursor == "Ready Left Player" and i == l_player) or (cursor.state.cursor == "Ready Right Player" and i == r_player)) then						
-							cursor.state.ready = true
-							cursor.ready = true
-						elseif cursor.state.cursor == "Leave" then 
-							if inNetplay then
-								json_send({logout=true})
-							else
-								global_rr.player_order:clear()
-							end	
-							ret = main_select_mode
-							
-						elseif cursor.state.cursor == "Sit Out" then
-							if i == l_player then
-								l_player = nil
-							elseif i == r_player then
-								r_player = nil
-							end
-							
-							--remove this player from the queue if sitting out
-							for j = 1, global_rr.player_order:len() do
-								if(global_rr.player_order:peek() == i) then
-									global_rr.player_order:pop()
-									j = j + 1
-								else
-									global_rr.player_order:push(global_rr.player_order:pop())
-								end
-							end
-							
-							cursor.active = false
-						end	
-					  end
-					elseif cursor.selected then 
-						cursor.selected = false
-						cursor.ready = false
-						cursor.state.ready = false
-						cursor.active = true
-					end				
-				  end  --end "Enter" key handling		
-
-				if inNetplay then break end -- only takes input for the local play in netplay
-
-				end --end input for loop				
-			end) --end variable step function
-		
-			--time to go! for offline...
-			if not inNetplay and l_player and l_player ~= nobody and r_player and r_player ~= nobody then
-				if cursor_data[l_player].ready and cursor_data[r_player].ready then
-				  
-				  local P1_for_a_day = false -- P1 has to pretend to be player #1 so that the countdown sfx players (it is limited to P1 so both players don't make it play simultaneously I guess)
-				  if r_player ~= 1 then P1_for_a_day = true end
-				  
-				  --copied from down below
-				  P1 = Stack(l_player, "vs", cursor_data[l_player].state.panels_dir, cursor_data[l_player].state.level, cursor_data[l_player].state.character, nil, P1_for_a_day)
-				  P1.enable_analytics = true
-				  P2 = Stack(r_player, "vs", cursor_data[r_player].state.panels_dir, cursor_data[r_player].state.level, cursor_data[r_player].state.character)
-				  P1.garbage_target = P2
-				  P2.garbage_target = P1
-				  current_stage = cursor_data[math.random(l_player,r_player)].state.stage
-				  stage_loader_load(current_stage)
-				  stage_loader_wait()
-				  move_stack(P2,2) 
-				  make_local_panels(P1, "000000")
-				  make_local_gpanels(P1, "000000")
-				  make_local_panels(P2, "000000")
-				  make_local_gpanels(P2, "000000")
-				  P1:starting_state()
-				  P2:starting_state()
-				  				  
-				  for p = 1, global_rr.num_players do
-					if cursor_data[p].active ~= false then
-						cursor_data[p].ready = false
-						cursor_data[p].state.ready = false
-						cursor_data[p].selected = false
+					-- find a player that has not been chosen
+					repeat
+						player = math.random(global_rr.num_players)
+					until chosen_players[player] == nil 
+					
+					-- if that player is still playing, add them to the queue
+					if cursor_data[player].active then
+						global_rr.player_order:push(player)
 					end
-				  end
-				  
-				  l_player = nil
-				  r_player = nil
-				  
-				  ret = rr_local_vs				  
+					
+					chosen_players[player] = true				
 				end
 				
-			elseif inNetplay then
+			end
 			
-				  local messages = server_queue:pop_all_with("match_start", "replay_of_match_so_far")
-
-				  for _,msg in ipairs(messages) do
-
-					currently_spectating = false -- neccesary?
-					if msg.match_start or msg.replay_of_match_so_far then
-						local replay_of_match_so_far = msg.replay_of_match_so_far
-
-					  if netPlayerNum ~= msg.player_settings.cursor_number and netPlayerNum ~= msg.opponent_settings.cursor_number or msg.spectate_request_granted then
-						currently_spectating = true
-					  end
-										  
-					  print("currently_spectating: "..tostring(currently_spectating))
-					  
-					  if not msg.replay_of_match_so_far then
-						  cursor_data[msg.player_settings.cursor_number].ready = false
-						  cursor_data[msg.opponent_settings.cursor_number].ready = false
-						  
-						  cursor_data[msg.player_settings.cursor_number].selected = false
-						  cursor_data[msg.opponent_settings.cursor_number].ready = false
-					  					  
-						  my_name = msg.player_settings.name
-						  op_name = msg.opponent_settings.name
-						  
-						  my_win_count = global_rr.win_count[msg.player_settings.cursor_number] or 0
-						  op_win_count = global_rr.win_count[msg.opponent_settings.cursor_number] or 0
-					  else
-						  my_name = replay_of_match_so_far.vs.P1_name
-						  op_name = replay_of_match_so_far.vs.P2_name
-						  
-						  my_win_count = msg.win_counts[1]
-						  op_win_count = msg.win_counts[2]
-					  end
-					  
-
-						  
-						  --pushed back to early in the waiting room, sometimes buffer messages would arrive before the match_start message and get cleared out
-						  --[[if currently_spectating then
-							  P1 = {panel_buffer="", gpanel_buffer=""}
-						  end
-						  P2 = {panel_buffer="", gpanel_buffer=""}]]--
-
-					  
-					  local fake_P1 = P1
-					  local fake_P2 = P2
-					  
-					  refresh_based_on_own_mods(msg.opponent_settings)
-					  refresh_based_on_own_mods(msg.player_settings, true)
-					  refresh_based_on_own_mods(msg) -- for stage only, other data are meaningless to us
-					  
-					  --load character and stages if not already done
-					  character_loader_load(msg.player_settings.character)
-					  character_loader_load(msg.opponent_settings.character)
-					  current_stage = msg.stage
-					  stage_loader_load(msg.stage)
-					  character_loader_wait()
-					  stage_loader_wait()
-
-					  P1 = Stack(1, "vs", msg.player_settings.panels_dir, msg.player_settings.level, msg.player_settings.character, msg.player_settings.player_number)
-					  P1.cur_wait_time = default_input_repeat_delay  -- this enforces default cur_wait_time for online games.  It is yet to be decided if we want to allow this to be custom online.
-					  P1.enable_analytics = not currently_spectating and not replay_of_match_so_far
-					  P2 = Stack(2, "vs", msg.opponent_settings.panels_dir, msg.opponent_settings.level, msg.opponent_settings.character, msg.opponent_settings.player_number)
-					  P2.cur_wait_time = default_input_repeat_delay  -- this enforces default cur_wait_time for online games.  It is yet to be decided if we want to allow this to be custom online.
-
-					  if currently_spectating then
-						P1.panel_buffer = fake_P1.panel_buffer
-						P1.gpanel_buffer = fake_P1.gpanel_buffer
-					  end
-					  
-					  P2.panel_buffer = fake_P2.panel_buffer
-					  P2.gpanel_buffer = fake_P2.gpanel_buffer
-					  P1.garbage_target = P2
-					  P2.garbage_target = P1
-					  
-					  move_stack(P2,2)
-					  
-					  replay.vs = {P="",O="",I="",Q="",R="",in_buf="",
-								  P1_level=P1.level,P2_level=P2.level,
-								  P1_name=my_name, P2_name=op_name,
-								  P1_char=P1.character,P2_char=P2.character,
-								  P1_cur_wait_time=P1.cur_wait_time, P2_cur_wait_time=P2.cur_wait_time,
-								  ranked=msg.ranked, do_countdown=true}
-
-					  if currently_spectating and replay_of_match_so_far then --we joined a match in progress
-						replay.vs = replay_of_match_so_far.vs
-						P1.input_buffer = replay_of_match_so_far.vs.in_buf
-						P1.panel_buffer = replay_of_match_so_far.vs.P
-						P1.gpanel_buffer = replay_of_match_so_far.vs.Q
-						P2.input_buffer = replay_of_match_so_far.vs.I
-						P2.panel_buffer = replay_of_match_so_far.vs.O
-						P2.gpanel_buffer = replay_of_match_so_far.vs.R
-						if replay.vs.ranked then
-						  match_type = "Ranked"
-						  match_type_message = ""
-						else
-						  match_type = "Casual"
+			-- determine both players who will play next
+			local function pick_now_playing()	
+			
+				--chooses left player
+				if (not l_player or l_player == nobody) then	
+					if global_rr.win_count.last_winner and global_rr.matchup == "Winner" and r_player ~= global_rr.win_count.last_winner and cursor_data[global_rr.win_count.last_winner].active then
+						l_player = global_rr.win_count.last_winner
+					else
+						
+						-- refill queue if it is empty
+						if global_rr.player_order:len() == 0 then
+							fill_player_queue()
 						end
-						replay_of_match_so_far = nil
-						P1.play_to_end = true  --this makes foreign_run run until caught up
-						P2.play_to_end = true
-					  end
-					  
-					  if not currently_spectating then
-						  ask_for_gpanels("000000")
-						  ask_for_panels("000000")
-					  end
-					  
-					  to_print = loc("pl_game_start").."\n"..loc("level")..": "..P1.level.."\n"..loc("opponent_level")..": "..P2.level
-					  if P1.play_to_end or P2.play_to_end then
-						to_print = loc("pl_spectate_join")
-					  end
-							  
-					  for i=1,30 do
-						gprint(to_print,unpack(main_menu_screen_pos))
-						if not do_messages() then
-						  return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
-						end
-						wait()
-					  end
-			  
-					  local game_start_timeout = 0
-					  
-					  while P1.panel_buffer == "" or P2.panel_buffer == ""
-						or P1.gpanel_buffer == "" or P2.gpanel_buffer == "" do
-
-						game_start_timeout = game_start_timeout + 1
-						print("game_start_timeout = "..game_start_timeout)
-						print("P1.panel_buffer = "..P1.panel_buffer)
-						print("P2.panel_buffer = "..P2.panel_buffer)
-						print("P1.gpanel_buffer = "..P1.gpanel_buffer)
-						print("P2.gpanel_buffer = "..P2.gpanel_buffer)
-						if not do_messages() then
-						  return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
-						end
-						wait()
-						if game_start_timeout > 250 then
-						  return main_dumb_transition, {main_select_mode,
-										  loc("pl_time_out").."\n"
-										  .."\n".."msg.match_start = "..(tostring(msg.match_start) or "nil")
-										  .."\n".."replay_of_match_so_far = "..(tostring(replay_of_match_so_far) or "nil")
-										  .."\n".."P1.panel_buffer = "..P1.panel_buffer
-										  .."\n".."P2.panel_buffer = "..P2.panel_buffer
-										  .."\n".."P1.gpanel_buffer = "..P1.gpanel_buffer
-										  .."\n".."P2.gpanel_buffer = "..P2.gpanel_buffer,
-										  180}
-						end
-					  love.timer.sleep(0.017)
-					  end
-					  P1:starting_state()
-					  P2:starting_state()
-
-					  server_queue:pop_all_with("rr_lobby_state") -- all lobby states are stale now
-					  ret = main_net_vs
+						
+						if global_rr.player_order:len() > 0 then
+						
+							-- grab the next available player and add them if they are still active
+							repeat
+								l_player = global_rr.player_order:pop()
+								
+								 -- nobody if no player is free to play (ie all players are sitting out) 
+								if cursor_data[l_player].active == false or l_player == r_player then 
+									l_player = nobody
+								end
+								
+							until l_player or global_rr.player_order:len() < 1	
+							
+						end 
 					end
 				end
+
+				--chooses right player
+				if (not r_player or r_player == nobody) then
+					if global_rr.win_count.last_winner and global_rr.matchup == "Winner" and l_player ~= global_rr.win_count.last_winner and cursor_data[global_rr.win_count.last_winner].active then
+						r_player = global_rr.win_count.last_winner
+					else
+					
+						-- refill queue if it is empty
+						if global_rr.player_order:len() == 0 then
+							fill_player_queue()
+						end
+						
+						if global_rr.player_order:len() > 0 then			
+
+							-- grab the next available player and add them if they are still active
+							repeat
+								r_player = global_rr.player_order:pop()
+								
+								-- nobody if no player is free to play (ie all players are sitting out) 
+								if cursor_data[r_player].active == false or r_player == l_player then 
+									r_player = nobody 
+								end
+								
+							until r_player or global_rr.player_order:len() < 1
+						end
+					end
+				end		
 			end
 
-			if inNetplay and lobby_state_changed == true then
-				send_lobby_state()
-				lobby_state_changed = false
-			end
-		
-			wait() 
-		end --end main loop		
-	
-		if global_rr.isSetup then
-			if ret == main_select_mode then
-				global_rr.isSetup = false
+			-- send current state of the lobby to the server
+			local function send_lobby_state()
+				cursor = cursor_data[netPlayerNum]
+				
+				sent_json = {rr_state = {cursor_state = cursor.state.cursor, 
+																cursor_active = cursor.active, 
+																cursor_selected = cursor.selected, 
+																cursor_ready = (cursor.ready and cursor.state.ready),
+																}}
+				json_send(sent_json)
 			end
 
-			return main_dumb_transition(ret, "", 0, 0)
-		else
-			if ret == rr_local_vs then
-				global_rr.isSetup = true
+			-- receive lobby information from server
+			local function net_update_lobby()
+				local got_msg = false
+			
+				repeat
+					local msg = server_queue:pop_next_with("rr_lobby_state")
+					
+					if msg then 
+						got_msg = true
+				
+						-- clear each player's state
+						for i = 1, 8 do
+							if i ~= netPlayerNum then
+								clear_player(i)
+							end
+						end											
+						
+						-- load message data
+						for _, v in pairs(msg.rr_lobby_state) do
+							local player = v.player_number
+					
+							-- update any player information that isn't the local player
+							if player ~= netPlayerNum then 
+								cursor_data[player].ready = v.cursor_ready
+								cursor_data[player].selected = v.cursor_selected
+								cursor_data[player].active = v.cursor_active
+								cursor_data[player].state.level = v.level
+								cursor_data[player].state.character = v.character
+								cursor_data[player].state.stage = v.stage
+								cursor_data[player].state.character_display_name = v.character_display_name
+								cursor_data[player].state.cursor = v.cursor_state
+								cursor_data[player].name = v.player_name
+								cursor_data[player].visible = true
+								global_rr.win_count[player] = v.wins
+								
+								-- wait for character portrait to load if not done already
+								if not characters[cursor_data[player].state.character].fully_loaded then 
+										character_loader_load(cursor_data[player].state.character)
+										character_loader_wait()
+								end
+								
+								-- wait for stage to load
+								if cursor_data[player].state.stage ~= "__RandomStage" and not stages[cursor_data[player].state.stage].fully_loaded then
+									stage_loader_load(cursor_data[player].state.stage)
+								end
+								
+							-- update local player's information
+							else
+
+								-- update cursor state
+								cursor_data[player].state.cursor = v.cursor_state
+								rr_net_return = false
+
+								-- update player's name if the server renamed them
+								cursor_data[player].name = v.player_name
+								global_rr.win_count[player] = v.wins
+							end
+						end 
+
+						l_player = msg.rr_mode.l_player
+						r_player = msg.rr_mode.r_player
+
+						global_rr.win_mode = msg.rr_mode.rr_win_mode or ""
+						global_rr.matchup = msg.rr_mode.rr_play_mode or ""	
+
+					end
+				until not msg	
+				
+				refresh_loaded_and_ready(cursor_data)			
+
+				return got_msg
+			end
+
+			--set up the scrolling background
+			local bg_x, bg_y = 0, 0
+			
+			scrolling_bg = themes[config.theme].images.rr_lobby
+			scrolling_bg:setWrap("repeat", "repeat")
+			bg_quad = love.graphics.newQuad(0, 0, canvas_width, canvas_height, scrolling_bg:getWidth(), scrolling_bg:getHeight())
+
+			--only should be done the first time netplay is run
+			if not global_rr.isSetup then
+				init_players()
+				fill_player_queue()
 			end
 			
-			return {ret, "", 0, 0}
-		end
-	end --end round_robin_lobby
-	
-    --1P
-	if cursor_data[1].state.ready and select_screen.character_select_mode == "1p_vs_yourself" then
-      P1 = Stack(1, "vs", cursor_data[1].state.panels_dir, cursor_data[1].state.level, cursor_data[1].state.character)
-      P1.enable_analytics = true
-      P1.garbage_target = P1
-      make_local_panels(P1, "000000")
-      make_local_gpanels(P1, "000000")
-      current_stage = cursor_data[1].state.stage
-      stage_loader_load(current_stage)
-      stage_loader_wait()
-      P1:starting_state()
-      return main_dumb_transition, {main_local_vs_yourself, "", 0, 0}
-	  
-	--2P local  
-    elseif cursor_data[1].state.ready and select_screen.character_select_mode == "2p_local_vs" and cursor_data[2].state.ready then
-      P1 = Stack(1, "vs", cursor_data[1].state.panels_dir, cursor_data[1].state.level, cursor_data[1].state.character)
-      P1.enable_analytics = true
-      P2 = Stack(2, "vs", cursor_data[2].state.panels_dir, cursor_data[2].state.level, cursor_data[2].state.character)
-      P1.garbage_target = P2
-      P2.garbage_target = P1
-      current_stage = cursor_data[math.random(1,2)].state.stage
-      stage_loader_load(current_stage)
-      stage_loader_wait()
-      move_stack(P2,2)
-      -- TODO: this does not correctly implement starting configurations.
-      -- Starting configurations should be identical for visible blocks, and
-      -- they should not be completely flat.
-      --
-      -- In general the block-generation logic should be the same as the server's, so
-      -- maybe there should be only one implementation.
-      make_local_panels(P1, "000000")
-      make_local_gpanels(P1, "000000")
-      make_local_panels(P2, "000000")
-      make_local_gpanels(P2, "000000")
-      P1:starting_state()
-      P2:starting_state()
-      return main_dumb_transition, {main_local_vs, "", 0, 0}
-    
-	--round robin 
-	elseif select_screen.character_select_mode == "round_robin" then
- 	  local all_players_ready = true
-	  for p = 1, global_rr.num_players do
-		if (not cursor_data[p].state.ready) then 
-		  all_players_ready = false 
-		end
-	  end
-	 
-      if all_players_ready then  
-		return main_dumb_transition, {round_robin_lobby, "", 0, 0}
-	  end
-	  
-	--2P Net
-	elseif select_screen.character_select_mode == "2p_net_vs" then
-      if not do_messages() then
-        return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
-      end
+			-- setup netplay variables
+			if inNetplay and not global_rr.isSetup then 
+				cursor_data[netPlayerNum] = deepcpy(cursor_data[1])
+				send_lobby_state()		
+				my_name = config.name or my_name or ""
+			
+				global_rr.num_players = global_max_players
+				for i = 1, global_max_players do
+					cursor_data[i].visible = false
+				end
+				
+			end
 
-	--rr netplay char select
-	elseif cursor_data[1].state.ready and select_screen.character_select_mode == "rr_netplay_char_select" then	
-	  return	  
-    end
-	
-  end --(end menu loop)
+			-- wait for initial lobby information from server
+			if inNetplay then
+				local got_lobby = false
+				local i = 0
+				repeat 
+					got_lobby = net_update_lobby()
+					i = i + 1
+				until got_lobby or i > 50
+				
+				P1 = {panel_buffer="", gpanel_buffer=""}
+				P2 = {panel_buffer="", gpanel_buffer=""}
+			end	
+			
+			--init more netplay variables
+			if inNetplay and not global_rr.isSetup then
+			
+				cursor_data[netPlayerNum].state.ready = nil
+				cursor_data[netPlayerNum].ready = false
+				cursor_data[netPlayerNum].state.wants_ready = false
+				cursor_data[netPlayerNum].selected = false
+				cursor_data[netPlayerNum].active = true
+				cursor_data[netPlayerNum].visible = true
+				cursor_data[netPlayerNum].name = my_name
+				cursor_data[netPlayerNum].state.cursor = "Sit Out"
+				
+				send_lobby_state()
+			end
+
+			-- local setup if not playing online
+			if not inNetplay then
+				pick_now_playing()
+				
+				--starting positions of the cursors
+				for p = 1, global_rr.num_players do
+					if p == l_player then 
+						cursor_data[p].state.cursor = "Ready Left Player"
+					elseif p == r_player then
+						cursor_data[p].state.cursor = "Ready Right Player"
+					else
+						cursor_data[p].state.cursor = "Sit Out"
+					end			
+				end			
+			end
+			
+			global_rr.isSetup = true
+				
+			--main loop
+			while (not ret) do 
+			
+				local function scroll_background()
+					bg_x = bg_x-0.4
+					bg_y = bg_y-0.6
+					bg_quad:setViewport(bg_x, bg_y, canvas_width, canvas_height)
+					menu_drawq(scrolling_bg, bg_quad, 0, 0, 0, 1, 1)
+				end	
+				
+				local function draw_interface()
+					--draw player information
+					for p = 1, global_rr.num_players do
+					
+						if inNetplay and not cursor_data[p].visible then
+							pstr = "__Empty"
+						else
+							pstr = "P"..p
+						end
+		
+						-- draw portraits in columns
+						if p <= 4 then
+							draw_button((p - 0.5) * 1.25, 0, 1, 1, pstr)
+							if pstr ~= "__Empty" then 
+								draw_button((p - 0.5) * 1.25, 1, 1, 1, "Wins: "..tostring(global_rr.win_count[p] or 0), "center", "center", true);
+							end
+							
+						else 
+							draw_button((p - 4 - 0.5) * 1.25, 3, 1, 1, pstr)
+							if pstr ~= "__Empty" then 
+								draw_button((p - 4 - 0.5) * 1.25, 4, 1, 1, "Wins: "..tostring(global_rr.win_count[p] or 0), "center", "center", true);
+							end
+						end
+					end
+					
+					-- draw ready buttons and ready image if selected
+					
+					-- left player
+					local pl_x, pl_y = draw_button(0.5, 5, 2, 2, "Ready Left Player", false, false, false, true)
+					
+					if l_player and l_player ~= nobody then
+						local pstr = "PLAYER "..tostring(l_player)
+						if inNetplay then pstr = cursor_data[l_player].name end
+
+						draw_button(0.5, 5, 2, 2, pstr, "center", "center")
+						
+						if(cursor_data[l_player].ready == true) then
+							menu_drawf(themes[config.theme].images.IMG_ready, pl_x + 125, pl_y + 50, "center", "center", math.pi/4, 2, 2)
+						end
+					else
+						draw_button(0.5, 5, 2, 2, "No free player", "center", "center")
+					end
+					
+					-- right player
+					local pr_x, pr_y = draw_button(0.5, 8, 2, 2, "Ready Right Player", false, false, false, true)
+					if r_player and r_player ~= nobody then 
+						local pstr = "PLAYER "..tostring(r_player)
+						if inNetplay then pstr = cursor_data[r_player].name end				
+					
+						draw_button(0.5, 8, 2, 2, pstr, "center", "center") 
+						
+						if(cursor_data[r_player].ready == true) then
+							menu_drawf(themes[config.theme].images.IMG_ready, pr_x + 125, pr_y + 50, "center", "center", math.pi/4, 2, 2)
+						end					
+					else
+						draw_button(0.5, 8, 2, 2, "No free player", "center", "center")
+					end
+					 
+					--draw option buttons
+					draw_button(3.5*1.25, 8, 1, 1, "Sit Out")
+					draw_button(3.5*1.25, 9, 1, 1, "Leave")
+
+					local padding = (global_rr.matchup == "Even") and "  " or ""
+					draw_button(3.5*1.25, 7, 1, 1, "Next Player")
+					gprintf(padding.."<-"..string.upper(global_rr.matchup).."->", 801, 550)
+					
+					draw_button(3.5*1.25, 5, 2, 1, "Game Type")
+					gprint("<-"..string.upper(global_rr.win_mode).."->", 630, 550)
+				end		
+
+				if inNetplay then 
+					net_update_lobby()
+				end	
+				
+				scroll_background()
+				draw_interface()	
+
+				if not inNetplay then 
+					pick_now_playing()		
+				end
+				
+				-- quit if error in network
+				if inNetplay and not do_messages() then
+					ret = main_select_mode
+				end	
+							
+				variable_step(function () 
+					menu_clock = menu_clock + 1
+
+					-- moves cursor to the appropriate button
+					local function move_lobby_cursor(cursor, dir, player)
+						local item = cursor.state.cursor
+						local prev = cursor.state.cursor
+
+						lobby_state_changed = true
+
+						if dir == "left" then 
+							if cursor.state.cursor == "Ready Left Player" 		then cursor.state.cursor = "Ready Right Player"
+							elseif cursor.state.cursor == "Ready Right Player"  then cursor.state.cursor = "Ready Left Player"
+							elseif cursor.state.cursor == "Sit Out" 			then cursor.state.cursor = "Next Player" 
+							elseif cursor.state.cursor == "Next Player" 		then cursor.state.cursor = "Game Type"
+							elseif cursor.state.cursor == "Game Type" 			then cursor.state.cursor = "Leave"
+							elseif cursor.state.cursor == "Leave" 				then cursor.state.cursor = "Sit Out" 
+							end
+						end
+
+						if dir == "right" then 
+							if cursor.state.cursor == "Ready Left Player" 		then cursor.state.cursor = "Ready Right Player" 
+							elseif cursor.state.cursor == "Ready Right Player" 	then cursor.state.cursor = "Ready Left Player"
+							elseif cursor.state.cursor == "Sit Out" 			then cursor.state.cursor = "Leave"
+							elseif cursor.state.cursor == "Leave"	 			then cursor.state.cursor = "Game Type"
+							elseif cursor.state.cursor == "Game Type" 			then cursor.state.cursor = "Next Player"
+							elseif cursor.state.cursor == "Next Player" 		then cursor.state.cursor = "Sit Out"
+							elseif cursor.state.cursor == "Leave" 				then cursor.state.cursor = "Next Player"
+							end
+						end
+						
+						if dir == "up" or dir == "down" then
+							if cursor.state.cursor == "Ready Left Player" or cursor.state.cursor == "Ready Right Player" then 
+								cursor.state.cursor = "Sit Out" 
+							elseif cursor.state.cursor == "Sit Out" or cursor.state.cursor == "Leave" or cursor.state.cursor == "Next Player" or cursor.state.cursor == "Game Type" then
+								if player == l_player then cursor.state.cursor = "Ready Left Player" end
+								if player == r_player then cursor.state.cursor = "Ready Right Player" end
+							end
+						end
+						
+						--if the player isn't playing... don't let them try to choose a ready button
+						if cursor.state.cursor == "Ready Left Player" and (not (player == l_player)) then 
+							cursor.state.cursor = prev 
+						end
+						
+						if cursor.state.cursor == "Ready Right Player" and (not (player == r_player)) then 
+							cursor.state.cursor = prev 
+						end
+					end
+
+					-- handles each player's keyboard input
+					for i = 1, global_rr.num_players do
+						local k = K[i]
+						local cursor = cursor_data[i]				 		  
+						
+						if inNetplay then
+							k = K[1]
+							cursor = cursor_data[netPlayerNum]
+							i = netPlayerNum
+						end
+						
+						if menu_right(k) and (not cursor.selected) then move_lobby_cursor(cursor, "right", i) end
+						if menu_left(k)  and (not cursor.selected) then move_lobby_cursor(cursor, "left", i) end 
+						if menu_up(k) and (not cursor.selected) then move_lobby_cursor(cursor, "up", i) end
+						if menu_down(k) and (not cursor.selected) then move_lobby_cursor(cursor, "down", i) end
+
+						--if changing the next player option button
+						if (menu_right(k) or menu_left(k)) and cursor.selected and cursor.state.cursor == "Next Player" then
+							global_rr.player_order:clear()
+							
+							if global_rr.matchup == "Winner" then 
+								global_rr.matchup = "Even" 
+							elseif global_rr.matchup == "Even" then 
+								global_rr.matchup = "Winner" 
+							end
+						end
+					
+						-- changing the game type button
+						if (menu_right(k) or menu_left(k)) and cursor.selected and cursor.state.cursor == "Game Type" then
+							if global_rr.win_mode == "Best of Three" then 
+								global_rr.win_mode = "Single Match" 
+							elseif global_rr.win_mode == "Single Match" then 
+								global_rr.win_mode = "Best of Three" 
+							end
+						end
+						
+						-- "Enter" key pressed
+						if menu_enter(k, false) then
+							lobby_state_changed = true
+							
+							if not cursor.selected then 
+							
+								-- send immediate changes to server
+								if inNetplay and cursor.state.cursor == "Game Type" then
+									json_send({change_win_mode = true})
+									
+								elseif inNetplay and cursor.state.cursor == "Next Player" then
+									json_send({change_play_mode = true})
+									
+								-- changes that require further processing
+								else
+								
+									cursor.selected = true
+									
+									-- select ready to play
+									if ((cursor.state.cursor == "Ready Left Player" and i == l_player) or (cursor.state.cursor == "Ready Right Player" and i == r_player)) then						
+										cursor.state.ready = true
+										cursor.ready = true
+										
+									-- leave game
+									elseif cursor.state.cursor == "Leave" then 
+										if inNetplay then
+											json_send({logout=true})
+										else
+											global_rr.player_order:clear()
+										end	
+										
+										ret = main_select_mode
+									
+									-- change from "active" state
+									elseif cursor.state.cursor == "Sit Out" then
+										
+										-- no longer on deck to play
+										if i == l_player then
+											l_player = nil
+										elseif i == r_player then
+											r_player = nil
+										end
+										
+										--remove this player from the queue if sitting out
+										for j = 1, global_rr.player_order:len() do
+											if(global_rr.player_order:peek() == i) then
+												global_rr.player_order:pop()
+												j = j + 1
+											else
+												global_rr.player_order:push(global_rr.player_order:pop())
+											end
+										end
+										
+										cursor.active = false
+									end	
+								end
+								
+							-- undo select 
+							elseif cursor.selected then 
+								cursor.selected = false
+								cursor.ready = false
+								cursor.state.ready = false
+								cursor.active = true
+							end				
+						end 
+
+						if inNetplay then 
+							break 
+						end -- only takes input for the local play in netplay
+
+					end 
+				end)
+			
+				-- time to play! for offline...
+				if not inNetplay and l_player and l_player ~= nobody and r_player and r_player ~= nobody then
+					if cursor_data[l_player].ready and cursor_data[r_player].ready then
+						
+						 -- P1 has to pretend to be player #1 so that the countdown sfx players (it is limited to P1 so both players don't make it play simultaneously I guess)
+						local P1_for_a_day = false
+						if r_player ~= 1 then 
+							P1_for_a_day = true 
+						end
+						
+						--copied from down below
+						P1 = Stack(l_player, "vs", cursor_data[l_player].state.panels_dir, cursor_data[l_player].state.level, cursor_data[l_player].state.character, nil, P1_for_a_day)
+						P1.enable_analytics = true
+						P2 = Stack(r_player, "vs", cursor_data[r_player].state.panels_dir, cursor_data[r_player].state.level, cursor_data[r_player].state.character)
+						P1.garbage_target = P2
+						P2.garbage_target = P1
+						current_stage = cursor_data[math.random(l_player,r_player)].state.stage
+						stage_loader_load(current_stage)
+						stage_loader_wait()
+						move_stack(P2,2) 
+						make_local_panels(P1, "000000")
+						make_local_gpanels(P1, "000000")
+						make_local_panels(P2, "000000")
+						make_local_gpanels(P2, "000000")
+						P1:starting_state()
+						P2:starting_state()
+											
+						for p = 1, global_rr.num_players do
+							if cursor_data[p].active ~= false then
+								cursor_data[p].ready = false
+								cursor_data[p].state.ready = false
+								cursor_data[p].selected = false
+							end
+						end
+						
+						l_player = nil
+						r_player = nil
+						
+						ret = rr_local_vs				  
+					end
+					
+				-- start match if playing online
+				elseif inNetplay then
+				
+						-- grab all relevant initialization messages
+						local messages = server_queue:pop_all_with("match_start", "replay_of_match_so_far")
+						for _,msg in ipairs(messages) do
+
+							currently_spectating = false
+							
+							if msg.match_start or msg.replay_of_match_so_far then
+								local replay_of_match_so_far = msg.replay_of_match_so_far
+
+								-- make spectator
+								if netPlayerNum ~= msg.player_settings.cursor_number and netPlayerNum ~= msg.opponent_settings.cursor_number or msg.spectate_request_granted then
+									currently_spectating = true
+								end
+								
+								-- print all spectators
+								print("currently_spectating: "..tostring(currently_spectating))
+								
+								-- joining a fresh game
+								if not msg.replay_of_match_so_far then
+									cursor_data[msg.player_settings.cursor_number].ready = false
+									cursor_data[msg.opponent_settings.cursor_number].ready = false
+									
+									cursor_data[msg.player_settings.cursor_number].selected = false
+									cursor_data[msg.opponent_settings.cursor_number].ready = false
+														
+									my_name = msg.player_settings.name
+									op_name = msg.opponent_settings.name
+									
+									my_win_count = global_rr.win_count[msg.player_settings.cursor_number] or 0
+									op_win_count = global_rr.win_count[msg.opponent_settings.cursor_number] or 0
+									
+								-- joining game in progress
+								else
+									my_name = replay_of_match_so_far.vs.P1_name
+									op_name = replay_of_match_so_far.vs.P2_name
+									
+									my_win_count = msg.win_counts[1]
+									op_win_count = msg.win_counts[2]
+								end
+								
+								local fake_P1 = P1
+								local fake_P2 = P2
+								
+								-- override settings based on local mods
+								refresh_based_on_own_mods(msg.opponent_settings)
+								refresh_based_on_own_mods(msg.player_settings, true)
+								refresh_based_on_own_mods(msg)
+								
+								--load character and stages if not already done
+								character_loader_load(msg.player_settings.character)
+								character_loader_load(msg.opponent_settings.character)
+								current_stage = msg.stage
+								stage_loader_load(msg.stage)
+								character_loader_wait()
+								stage_loader_wait()
+
+								-- copied from original code
+								P1 = Stack(1, "vs", msg.player_settings.panels_dir, msg.player_settings.level, msg.player_settings.character, msg.player_settings.player_number)
+								P1.cur_wait_time = default_input_repeat_delay  -- this enforces default cur_wait_time for online games.  It is yet to be decided if we want to allow this to be custom online.
+								P1.enable_analytics = not currently_spectating and not replay_of_match_so_far
+								P2 = Stack(2, "vs", msg.opponent_settings.panels_dir, msg.opponent_settings.level, msg.opponent_settings.character, msg.opponent_settings.player_number)
+								P2.cur_wait_time = default_input_repeat_delay  -- this enforces default cur_wait_time for online games.  It is yet to be decided if we want to allow this to be custom online.
+
+								if currently_spectating then
+									P1.panel_buffer = fake_P1.panel_buffer
+									P1.gpanel_buffer = fake_P1.gpanel_buffer
+								end
+								
+								P2.panel_buffer = fake_P2.panel_buffer
+								P2.gpanel_buffer = fake_P2.gpanel_buffer
+								P1.garbage_target = P2
+								P2.garbage_target = P1
+								
+								move_stack(P2,2)
+								
+								replay.vs = {P="",O="",I="",Q="",R="",in_buf="",
+											P1_level=P1.level,P2_level=P2.level,
+											P1_name=my_name, P2_name=op_name,
+											P1_char=P1.character,P2_char=P2.character,
+											P1_cur_wait_time=P1.cur_wait_time, P2_cur_wait_time=P2.cur_wait_time,
+											ranked=msg.ranked, do_countdown=true}
+
+								if currently_spectating and replay_of_match_so_far then --we joined a match in progress
+									replay.vs = replay_of_match_so_far.vs
+									P1.input_buffer = replay_of_match_so_far.vs.in_buf
+									P1.panel_buffer = replay_of_match_so_far.vs.P
+									P1.gpanel_buffer = replay_of_match_so_far.vs.Q
+									P2.input_buffer = replay_of_match_so_far.vs.I
+									P2.panel_buffer = replay_of_match_so_far.vs.O
+									P2.gpanel_buffer = replay_of_match_so_far.vs.R
+									
+									if replay.vs.ranked then
+										match_type = "Ranked"
+										match_type_message = ""
+									else
+										match_type = "Casual"
+									end
+									
+									replay_of_match_so_far = nil
+									P1.play_to_end = true  --this makes foreign_run run until caught up
+									P2.play_to_end = true
+								end
+								
+								if not currently_spectating then
+									ask_for_gpanels("000000")
+									ask_for_panels("000000")
+								end
+								
+								to_print = loc("pl_game_start").."\n"..loc("level")..": "..P1.level.."\n"..loc("opponent_level")..": "..P2.level
+								if P1.play_to_end or P2.play_to_end then
+									to_print = loc("pl_spectate_join")
+								end
+										
+								for i=1,30 do
+									gprint(to_print,unpack(main_menu_screen_pos))
+									if not do_messages() then
+										return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
+									end
+									wait()
+								end
+						
+								local game_start_timeout = 0
+								
+								while P1.panel_buffer == "" or P2.panel_buffer == ""
+								or P1.gpanel_buffer == "" or P2.gpanel_buffer == "" do
+
+									game_start_timeout = game_start_timeout + 1
+									print("game_start_timeout = "..game_start_timeout)
+									print("P1.panel_buffer = "..P1.panel_buffer)
+									print("P2.panel_buffer = "..P2.panel_buffer)
+									print("P1.gpanel_buffer = "..P1.gpanel_buffer)
+									print("P2.gpanel_buffer = "..P2.gpanel_buffer)
+									if not do_messages() then
+										return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
+									end
+									wait()
+									if game_start_timeout > 250 then
+										return main_dumb_transition, {main_select_mode,
+														loc("pl_time_out").."\n"
+														.."\n".."msg.match_start = "..(tostring(msg.match_start) or "nil")
+														.."\n".."replay_of_match_so_far = "..(tostring(replay_of_match_so_far) or "nil")
+														.."\n".."P1.panel_buffer = "..P1.panel_buffer
+														.."\n".."P2.panel_buffer = "..P2.panel_buffer
+														.."\n".."P1.gpanel_buffer = "..P1.gpanel_buffer
+														.."\n".."P2.gpanel_buffer = "..P2.gpanel_buffer,
+														180}
+									end
+									
+									love.timer.sleep(0.017)
+								end
+								
+								P1:starting_state()
+								P2:starting_state()
+
+								server_queue:pop_all_with("rr_lobby_state") -- all lobby states are stale now
+								ret = main_net_vs
+							end
+						end
+					end
+
+				if inNetplay and lobby_state_changed == true then
+					send_lobby_state()
+					lobby_state_changed = false
+				end
+			
+				wait() 
+			end --end main loop		
+		
+			if global_rr.isSetup then
+				if ret == main_select_mode then
+					global_rr.isSetup = false
+				end
+
+				return main_dumb_transition(ret, "", 0, 0)
+			else
+				if ret == rr_local_vs then
+					global_rr.isSetup = true
+				end
+				
+				return {ret, "", 0, 0}
+			end
+		end --end round_robin_lobby
+		
+		-- sigle player local 
+		if cursor_data[1].state.ready and select_screen.character_select_mode == "1p_vs_yourself" then
+				P1 = Stack(1, "vs", cursor_data[1].state.panels_dir, cursor_data[1].state.level, cursor_data[1].state.character)
+				P1.enable_analytics = true
+				P1.garbage_target = P1
+				make_local_panels(P1, "000000")
+				make_local_gpanels(P1, "000000")
+				current_stage = cursor_data[1].state.stage
+				stage_loader_load(current_stage)
+				stage_loader_wait()
+				P1:starting_state()
+				return main_dumb_transition, {main_local_vs_yourself, "", 0, 0}
+			 
+			elseif cursor_data[1].state.ready and select_screen.character_select_mode == "2p_local_vs" and cursor_data[2].state.ready then
+				P1 = Stack(1, "vs", cursor_data[1].state.panels_dir, cursor_data[1].state.level, cursor_data[1].state.character)
+				P1.enable_analytics = true
+				P2 = Stack(2, "vs", cursor_data[2].state.panels_dir, cursor_data[2].state.level, cursor_data[2].state.character)
+				P1.garbage_target = P2
+				P2.garbage_target = P1
+				current_stage = cursor_data[math.random(1,2)].state.stage
+				stage_loader_load(current_stage)
+				stage_loader_wait()
+				move_stack(P2,2)
+				-- TODO: this does not correctly implement starting configurations.
+				-- Starting configurations should be identical for visible blocks, and
+				-- they should not be completely flat.
+				--
+				-- In general the block-generation logic should be the same as the server's, so
+				-- maybe there should be only one implementation.
+				make_local_panels(P1, "000000")
+				make_local_gpanels(P1, "000000")
+				make_local_panels(P2, "000000")
+				make_local_gpanels(P2, "000000")
+				P1:starting_state()
+				P2:starting_state()
+				return main_dumb_transition, {main_local_vs, "", 0, 0}
+			
+		-- round robin local mode
+		elseif select_screen.character_select_mode == "round_robin" then
+			local all_players_ready = true
+			
+			-- check if every player is in ready state
+			for player = 1, global_rr.num_players do
+				if (not cursor_data[player].state.ready) then 
+					all_players_ready = false 
+				end
+			end
+		 
+			-- go to the round robin lobby
+			if all_players_ready then  
+				return main_dumb_transition, {round_robin_lobby, "", 0, 0}
+			end
+			
+		--2P Netlay
+		elseif select_screen.character_select_mode == "2p_net_vs" then
+			if not do_messages() then
+				return main_dumb_transition, {main_select_mode, loc("ss_disconnect").."\n\n"..loc("ss_return"), 60, 300}
+			end
+
+		--rr netplay character select
+		elseif cursor_data[1].state.ready and select_screen.character_select_mode == "rr_netplay_char_select" then	
+			return	  
+		end
+  end 
 end
 
 return select_screen

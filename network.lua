@@ -87,10 +87,10 @@ local process_message = {
   H=function(s) got_H = true end,
   --N=function(s) error("Server told us to upgrade the game at burke.ro/panel.zip (for burke.ro server) or the TetrisAttackOnline Discord (for Jon's Server)") end,
   N=function(s) error(loc("nt_ver_err")) end,
-  P=function(s) P1.panel_buffer = (P1.panel_buffer or "")..s end,  -- originally none of these had "or """ but was getting errors about concatenating with nil..
+  P=function(s) P1.panel_buffer = (P1.panel_buffer or "")..s end,
   O=function(s) P2.panel_buffer = (P2.panel_buffer or "")..s end,
   U=function(s) P1.input_buffer = (P1.input_buffer or "")..s end,  -- used for P1's inputs when spectating.
-  I=function(s) P2.input_buffer = (P2.input_buffer or "")..s end, 
+  I=function(s) P2.input_buffer = (P2.input_buffer or "")..s end,
   Q=function(s) P1.gpanel_buffer = (P1.gpanel_buffer or "")..s end,
   R=function(s) P2.gpanel_buffer = (P2.gpanel_buffer or "")..s end,
   E=function(s) net_send("F"..s) connection_up_time = connection_up_time +1 end,  --connection_up_time counts "E" messages, not seconds
@@ -142,7 +142,6 @@ function do_messages()
   end
   while true do
     local typ, data = get_message()
-
 	if typ then
       if typ ~= "I" and typ ~= "U" and typ ~= "E" then
         print("Got message "..typ.." "..data)

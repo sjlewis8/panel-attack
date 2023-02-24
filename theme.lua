@@ -49,7 +49,6 @@ function Theme.graphics_init(self)
   self.images.bg_overlay = load_theme_img("background/bg_overlay")
   self.images.fg_overlay = load_theme_img("background/fg_overlay")
   
-  --d
   self.images.rr_lobby = load_theme_img("background/lobby_bg_final")
 
   self.images.pause = load_theme_img("pause")

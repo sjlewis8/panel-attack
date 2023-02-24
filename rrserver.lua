@@ -1,3 +1,5 @@
+-- modified from server.lua
+
 local socket = require("socket")
 require("class")
 json = require("dkjson")
@@ -42,9 +44,9 @@ local rr_ingame = false -- probably not necessary
 -- H = version checking
 -- I = inputs 
 -- F = empty (comment says "got pong")
--- J = ?JSON message?
--- U = ?P1s inputs when spectating
--- E = ?server sending E prompts client to send F and increments client's connection_up_time (in messages recieved) 
+-- J = JSON message
+-- U = P1s inputs when spectating
+-- E = server sending E prompts client to send F and increments client's connection_up_time (in messages recieved) 
 
 local VERSION = "998"
 local type_to_length = {H=4, E=4, F=4, P=8, I=2, L=2, Q=8, U=2}
@@ -59,6 +61,7 @@ local playerbases = {}
 local loaded_placement_matches = {incomplete={},
                                   complete={}}
 
+-- gets state of the lobby
 local function lobby_state()
   local names = {}
   for _,v in pairs(connections) do
@@ -71,9 +74,11 @@ local function lobby_state()
   for _,v in pairs(rooms) do
     spectatableRooms[#spectatableRooms+1] = {roomNumber=v.roomNumber, name=v.name , a=v.a.name, b=v.b.name, state=v:state()}
   end
+	
   return {unpaired = names, spectatable=spectatableRooms}
 end
 
+-- returns number of players ready to play
 local function num_active_players()
 	local n = 0
 	
@@ -84,9 +89,11 @@ local function num_active_players()
 	return n
 end
 
+-- assigns a new connection a player number
 local function get_next_player_num()
 	local n = 0
 	
+	-- find the next unassigned player number
 	repeat
 		found = true
 		n = n + 1
@@ -102,32 +109,36 @@ local function get_next_player_num()
 	else 
 		return nil
 	end
+	
 end
 
+-- return current state of the lobby
 local function rr_lobby_state()
   local lobby_data = {rr_lobby_state = {}, rr_mode = {}}
   
   lobby_data.num_players = num_active_players()
   
+	-- creates state data for each active connection
   for i, v in pairs(connections) do
-
-	lobby_data.rr_lobby_state[i] = { player_number = v.rr.cursor_number,
-									wins = v.rr.wins,
-									cursor_state = v.rr.cursor_state,
-									cursor_ready = v.rr.cursor_ready,
-									cursor_active = v.rr.cursor_active,
-									cursor_selected = v.rr.cursor_selected,
-									character = v.character,
-									level = v.level,
-									stage = v.stage,
-									character_display_name = v.character_display_name,
-									player_name = v.name}
+		lobby_data.rr_lobby_state[i] = { player_number = v.rr.cursor_number,
+																			wins = v.rr.wins,
+																			cursor_state = v.rr.cursor_state,
+																			cursor_ready = v.rr.cursor_ready,
+																			cursor_active = v.rr.cursor_active,
+																			cursor_selected = v.rr.cursor_selected,
+																			character = v.character,
+																			level = v.level,
+																			stage = v.stage,
+																			character_display_name = v.character_display_name,
+																			player_name = v.name}
 									
   end
 
+	-- current game modes
 	lobby_data.rr_mode.rr_play_mode = rr_play_mode
 	lobby_data.rr_mode.rr_win_mode = rr_win_mode
 	
+	-- left and right active players
 	if connections[rr_l_player] then
 		lobby_data.rr_mode.l_player = connections[rr_l_player].rr.cursor_number
 	end
@@ -139,6 +150,7 @@ local function rr_lobby_state()
   return lobby_data
 end
 
+-- remove player from the player queue
 local function remove_from_queue(index)
 	for i = 1, rr_player_queue:len() do
 		player = rr_player_queue:pop()
@@ -148,11 +160,13 @@ local function remove_from_queue(index)
 	end
 end
 
+-- refills the player queue with active players
 local function fill_player_queue()
 	local active_players = {}
 	local chosen_players = {}
 	local num_players = 0
 	
+	-- get all active connections
 	for _, v in pairs(connections) do
 		if v.rr.cursor_active then 
 			active_players[num_players + 1] = v.index
@@ -161,14 +175,16 @@ local function fill_player_queue()
 	end
 
 	for j = 1, num_players do
-		local p
+		local player
 		
+		-- pick a random unassigned player
 		repeat
-			p = math.random(num_players)
-		until chosen_players[p] == nil 
+			player = math.random(num_players)
+		until chosen_players[player] == nil 
 		
-		rr_player_queue:push(active_players[p])
-		chosen_players[p] = true				
+		-- add that player to the queue
+		rr_player_queue:push(active_players[player])
+		chosen_players[player] = true				
 	end
 end
 
@@ -187,15 +203,20 @@ local function update_player_queue()
 		r_player_c = nil
 	end
 	
-	--left player
+	-- assign left player
 	if(not rr_l_player or rr_l_player == nobody) then
+		-- choose previous winner
 		if rr_last_winner and rr_play_mode == "Winner" and rr_r_player ~= rr_last_winner and (connections[rr_last_winner] and connections[rr_last_winner].rr.cursor_active) then
 			rr_l_player = rr_last_winner
+			
+		-- choose from queue
 		else
+			-- refill queue if empty
 			if rr_player_queue:len() == 0 then
 				fill_player_queue()
 			end
 			
+			-- pick next player from the queue
 			if rr_player_queue:len() > 0 then
 				repeat
 					rr_l_player = rr_player_queue:pop()
@@ -208,15 +229,20 @@ local function update_player_queue()
 		end
 	end
 
-	--right player
+	-- assign right player
 	if(not rr_r_player or rr_r_player == nobody) then
+		-- choose previous winner
 		if rr_last_winner and rr_play_mode == "Winner" and rr_l_player ~= rr_last_winner and (connections[rr_last_winner] and connections[rr_last_winner].rr.cursor_active) then
 			rr_r_player = rr_last_winner
+			
+		-- choose from queue
 		else
+			-- refill queue if empty
 			if rr_player_queue:len() == 0 then
 				fill_player_queue()
 			end
 
+			-- pick next player from the queue
 			if rr_player_queue:len() > 0 then
 				repeat
 					rr_r_player = rr_player_queue:pop()
@@ -230,6 +256,7 @@ local function update_player_queue()
 	end
 end
 
+-- from original server code
 function propose_game(sender, receiver, message)
   local s_c, r_c = name_to_idx[sender], name_to_idx[receiver]
   if s_c then s_c = connections[s_c] end
@@ -250,6 +277,7 @@ function propose_game(sender, receiver, message)
   end
 end
 
+-- from original server code
 function clear_proposals(name)
   if proposals[name] then
     for othername,_ in pairs(proposals[name]) do
@@ -262,9 +290,9 @@ function clear_proposals(name)
   end
 end
 
+-- from original server code
 function create_room(a, b)
   lobby_changed = true
- -- rr_lobby_changed = true
   clear_proposals(a.name)
   clear_proposals(b.name)
   local new_room = Room(a,b)
@@ -294,23 +322,28 @@ function create_room(a, b)
   new_room.b:send(b_msg)
 end
 
+-- begin game between two players (lp: left player, rp: right player)
 function rr_start_match(lp, rp)
-
   local new_room
+	
+	-- create the room for the match
   if lp.room then 
     new_room = lp.room
   else
     new_room = Room(lp,rp)
   
+		-- add all non-participating players as spectators
     for _, v in pairs(connections) do
       if v.index ~= rr_l_player and v.index ~= rr_r_player then
-		new_room:add_spectator(v)
-	  end
-	  v.state = "playing"
-	  v.opponent = nil -- otherwise a spectator's previous opponent will get disconnected if the spectator leaves
+				new_room:add_spectator(v)
+			end
+			
+			v.state = "playing"
+			v.opponent = nil -- otherwise a spectator's previous opponent will get disconnected if the spectator leaves
     end
   end
 
+	-- initialize room
   new_room.replay = {}
   new_room.replay.vs = {P="",O="",I="",Q="",R="",in_buf="",
 						P1_level=new_room.a.level,P2_level=new_room.b.level,
@@ -323,14 +356,19 @@ function rr_start_match(lp, rp)
   lp.player_number = 1
   rp.player_number = 2  
   
+	-- pick between left and right player's stage aesthetics
   new_room.stage = math.random(1,2) == 1 and lp.stage or rp.stage
   
-  local msg = {match_start = true, ranked = false, stage=new_room.stage,
+	-- generate match_start messgae
+  local msg = {match_start = true, 
+								ranked = false, 
+								stage=new_room.stage,
                 player_settings = {character = lp.character, character_display_name = lp.character_display_name, level = lp.level, panels_dir = lp.panels_dir, player_number = lp.player_number, name = lp.name, cursor_number = lp.rr.cursor_number},
                 opponent_settings = {character = rp.character, character_display_name = rp.character_display_name, level = rp.level, panels_dir = rp.panels_dir, player_number = rp.player_number, name = rp.name, cursor_number = rp.rr.cursor_number}}
         
   local room_is_ranked, reasons = new_room:rating_adjustment_approved()
   
+	-- set up rankings
   room_is_ranked = false
   if room_is_ranked then
     new_room.replay.vs.ranked=true
@@ -349,11 +387,13 @@ function rr_start_match(lp, rp)
     end
   end  
   
+	-- set up replay data
   new_room.replay.vs.P1_name = lp.name
   new_room.replay.vs.P2_name = rp.name
   new_room.replay.vs.P1_char = lp.character
   new_room.replay.vs.P2_char = rp.character
 
+	-- send all connections to the newly created room
   new_room:send({spectators = new_room:spectator_names()})
 
   lp:send(msg)
@@ -372,6 +412,7 @@ function rr_start_match(lp, rp)
     v:setup_game()
   end  
   
+	-- reset lobby cursors
   lp.rr.cursor_ready = false
   lp.rr.cursor_selected = false
   rp.rr.cursor_ready = false
@@ -380,6 +421,7 @@ function rr_start_match(lp, rp)
   
 end
 
+-- from original server code
 function start_match(a, b)
   if (a.player_number ~= 1) then
     print("Match starting, players a and b need to be swapped.")
@@ -430,6 +472,7 @@ function start_match(a, b)
   end
 end
 
+-- from original server code
 Room = class(function(self, a, b)
   --TODO: it would be nice to call players a and b something more like self.players[1] and self.players[2]
   self.a = a --player a
@@ -479,11 +522,13 @@ Room = class(function(self, a, b)
   rooms[self.roomNumber] = self
 end)
 
+-- from original server code
 function Room.character_select(self)
   self:prepare_character_select()
   self:send({character_select=true, create_room=true, rating_updates=true, ratings=self.ratings, a_menu_state=self.a:menu_state(), b_menu_state=self.b:menu_state()})
 end
 
+-- from original server code
 function Room.prepare_character_select(self)
   print("Called Server.lua Room.character_select")
   self.a.state = "character select"
@@ -510,6 +555,7 @@ function Room.prepare_character_select(self)
   -- end
 end
 
+-- from original server code
 function Room.state(self)
   if self.a.state == "character select" then
     return CHARACTERSELECT
@@ -524,6 +570,7 @@ function Room.is_spectatable(self)
   return self.a.state == "character select"
 end
 
+-- from original server code
 function Room.add_spectator(self, new_spectator_connection)
   new_spectator_connection.state = "spectating"
   new_spectator_connection.room = self
@@ -540,6 +587,7 @@ function Room.add_spectator(self, new_spectator_connection)
   rr_lobby_changed = true
 end
 
+-- from original server code
 function Room.spectator_names(self)
   local list = {}
   for k,v in pairs(self.spectators) do
@@ -548,6 +596,7 @@ function Room.spectator_names(self)
   return list
 end
 
+-- from original server code
 function Room.remove_spectator(self, connection)
   for k,v in pairs(self.spectators) do
     if v.name == connection.name then
@@ -563,6 +612,7 @@ function Room.remove_spectator(self, connection)
   self:send(msg)
 end
 
+-- from original server code
 function Room.close(self)
   if self.a then
     self.a.player_number = 0
@@ -588,6 +638,7 @@ function Room.close(self)
   rr_lobby_changed = true
 end
 
+-- from original server code
 function roomNumberToRoom(roomNr)
   for k,v in pairs(rooms) do
     if rooms[k].roomNumber and rooms[k].roomNumber == roomNr then
@@ -596,6 +647,7 @@ function roomNumberToRoom(roomNr)
   end
 end
 
+-- from original server code
 --TODO: maybe support multiple playerbases
 Playerbase = class(function (s, name)
   s.name = name
@@ -605,11 +657,13 @@ Playerbase = class(function (s, name)
   playerbases[#playerbases+1] = s
 end)
 
+-- from original server code
 function Playerbase.update(self, user_id, user_name)
   self.players[user_id] = user_name
   write_players_file()
 end
 
+-- from original server code
 function Playerbase.delete_player(self, user_id)
  -- returns whether a player was deleted
   if self.players[user_id] then
@@ -623,19 +677,21 @@ function Playerbase.delete_player(self, user_id)
   end
 end
 
+-- from original server code
 function generate_new_user_id()
   new_user_id = cs_random()
   print("new_user_id: "..new_user_id)
   return tostring(new_user_id)
 end
 
-
+-- from original server code
 --TODO: support multiple leaderboards
 Leaderboard = class(function (s, name)
   s.name = name
   s.players = {}
 end)
 
+-- from original server code
 function Leaderboard.update(self, user_id, new_rating, match_details)
   print("in Leaderboard.update")
   if self.players[user_id] then
@@ -655,6 +711,7 @@ function Leaderboard.update(self, user_id, new_rating, match_details)
   print("done with Leaderboard.update")
 end
 
+-- from original server code
 function Leaderboard.get_report(self, user_id_of_requester)
 --returns the leaderboard as an array sorted from highest rating to lowest,
 --with usernames from playerbase.players instead of user_ids
@@ -694,7 +751,7 @@ function Leaderboard.get_report(self, user_id_of_requester)
   return report
 end
 
---socket looks like   "tcp{client}: 0175CF80"
+-- from original server code
 Connection = class(function(s, socket)
   s.index = INDEX
   INDEX = INDEX + 1
@@ -720,12 +777,14 @@ Connection = class(function(s, socket)
   s.rr.selected = nil
 end)
 
+-- from original server code
 function Connection.menu_state(self)
   state = {cursor=self.cursor, stage=self.stage, stage_is_random=self.stage_is_random, ready=self.ready, character=self.character, character_is_random=self.character_is_random, character_display_name=self.character_display_name, panels_dir=self.panels_dir, level=self.level, ranked=self.wants_ranked_match}
   return state
   --note: player_number here is the player_number of the connection as according to the server, not the "which" of any Stack
 end
 
+-- from original server code
 function Connection.send(self, stuff)
   if type(stuff) == "table" then
     local json = json.encode(stuff)
@@ -803,8 +862,9 @@ function Connection.login(self, user_id)
     deny_login(self, "Unknown")
   end
 
+	-- round robin lobby can only have 8 players max
   if num_active_players() > rr_max_players then
-	deny_login(self, "Room is full - Too Bad!")
+		deny_login(self, "Room is full - Too Bad!")
   end
 
   if self.logged_in then
@@ -814,17 +874,18 @@ function Connection.login(self, user_id)
 		
 	--join game already in progress?
     for _,v in pairs(rooms) do
-	  if rr_ingame then
-		v:add_spectator(self)
-	  else
-	    self:send(rr_lobby_state())
-	  end
+			if rr_ingame then
+			v:add_spectator(self)
+			else
+				self:send(rr_lobby_state())
+			end
     end
   end
 
   return self.logged_in
 end
 
+-- from original server code
 --TODO: revisit this to determine whether it is good.
 function deny_login(connection, reason)
     local new_violation_count = 0
@@ -862,6 +923,7 @@ function is_banned(IP)
   return is_banned
 end
 
+
 function Connection.opponent_disconnected(self)
   self.opponent = nil
   self.state = "rr_lobby"
@@ -878,6 +940,7 @@ function Connection.setup_game(self)
   if self.state ~= "spectating" then
     self.state = "playing"
   end
+	
   lobby_changed = true --TODO: remove this line when we implement joining games in progress
   rr_lobby_changed = true
   self.vs_mode = true
@@ -889,10 +952,12 @@ function Connection.setup_game(self)
 end
 
 function Connection.close(self)
+	-- report lost connection to players
   if self.state == "rr_lobby" then
     lobby_changed = true
-	rr_lobby_changed = true
+		rr_lobby_changed = true
   end
+	
   if self.room and (self.room.a.name == self.name or self.room.b.name == self.name) then
     print("about to close room for "..(self.name or "nil")..".  Connection.close was called")
     self.room:close()
@@ -913,6 +978,7 @@ function Connection.close(self)
   self.socket:close()
 end
 
+-- from original server code
 function Connection.H(self, version)
   if version ~= VERSION then
     self:send("N")
@@ -921,6 +987,7 @@ function Connection.H(self, version)
   end
 end
 
+-- from original server code
 function Connection.I(self, message)
   if self.opponent then
     self.opponent:send("I"..message)
@@ -940,6 +1007,7 @@ function Connection.I(self, message)
   end
 end
 
+-- from original server code
 function Room.send_to_spectators(self, message)
   --TODO: maybe try to do this in a different thread?
   for k,v in pairs(self.spectators) do
@@ -949,6 +1017,7 @@ function Room.send_to_spectators(self, message)
   end
 end
 
+-- from original server code
 function Room.send(self, message)
   if self.a then
     self.a:send(message)
@@ -964,6 +1033,7 @@ function Room.resolve_game_outcome(self)
   --Note: return value is whether the outcome could be resolved
   if not self.game_outcome_reports[1] or not self.game_outcome_reports[2] then
     return false
+		
   else
     local outcome = nil
     if self.game_outcome_reports[1] ~= self.game_outcome_reports[2] then
@@ -971,12 +1041,15 @@ function Room.resolve_game_outcome(self)
         --for now though...
         print("clients "..self.a.name.." and "..self.b.name.." disagree on their game outcome. So the server will decide.")
         outcome = 0
+				
     else
       outcome = self.game_outcome_reports[1]
     end
+		
     print("resolve_game_outcome says: "..outcome)
     --outcome is the player number of the winner, or 0 for a tie
-	--Replays
+		
+		--Replays
     if self.a.save_replays_publicly ~= "not at all" and self.b.save_replays_publicly ~= "not at all" then
       --use UTC time for dates on replays
       local now = os.date("*t",to_UTC(os.time()))
@@ -1023,6 +1096,7 @@ function Room.resolve_game_outcome(self)
       print("tie.  Nobody scored")
       --do nothing. no points or rating adjustments for ties.
       return true
+			
     else
       local someone_scored = false
       for i=1,2,1--[[or Number of players if we implement more than 2 players]] do
@@ -1034,42 +1108,50 @@ function Room.resolve_game_outcome(self)
           someone_scored = true
         end
       end
+			
+			-- adjust wins and decide if another game needs to be played
       if someone_scored then
-		if outcome == 1 then
-		  if rr_win_mode == "Best of Three" then
-		    self.a.rr.match_points = self.a.rr.match_points + 1
-		  end
-		  
-		  if rr_win_mode ~= "Best of Three" or self.a.rr.match_points >= 2 then 
-			self.a.rr.wins = self.a.rr.wins + 1
-			rr_last_winner = self.a.index
-		  end
-		end
-		
-		if outcome == 2 then
-		  if rr_win_mode == "Best of Three" then
-		    self.b.rr.match_points = self.b.rr.match_points + 1
-		  end
-		  
-		  if rr_win_mode ~= "Best of Three" or self.b.rr.match_points >= 2 then
-			self.b.rr.wins = self.b.rr.wins + 1
-			rr_last_winner = self.b.index
-		  end
-		end
-	  
-	    if rr_win_mode ~= "Best of Three" or self.a.rr.match_points >= 2 or self.b.rr.match_points >= 2 then  
-          local msg = {win_counts=self.win_counts}
-          self.a:send(msg)
-          self.b:send(msg)
-          self:send_to_spectators(msg)
-		end
+
+				-- left player won
+				if outcome == 1 then
+					if rr_win_mode == "Best of Three" then
+						self.a.rr.match_points = self.a.rr.match_points + 1
+					end
+					
+					if rr_win_mode ~= "Best of Three" or self.a.rr.match_points >= 2 then 
+						self.a.rr.wins = self.a.rr.wins + 1
+						rr_last_winner = self.a.index
+					end
+				end
+				
+				-- right player won
+				if outcome == 2 then
+					if rr_win_mode == "Best of Three" then
+						self.b.rr.match_points = self.b.rr.match_points + 1
+					end
+					
+					if rr_win_mode ~= "Best of Three" or self.b.rr.match_points >= 2 then
+						self.b.rr.wins = self.b.rr.wins + 1
+						rr_last_winner = self.b.index
+					end
+				end
+				
+				-- entire match won
+				if rr_win_mode ~= "Best of Three" or self.a.rr.match_points >= 2 or self.b.rr.match_points >= 2 then  
+						local msg = {win_counts=self.win_counts}
+						self.a:send(msg)
+						self.b:send(msg)
+						self:send_to_spectators(msg)
+				end
 		
       end
+			
       return true
     end
   end
 end
 
+-- from original server code
 function Room.rating_adjustment_approved(self)
   --returns whether both players in the room have game states such that rating adjustment should be approved
   local players = {self.a, self.b}
@@ -1147,6 +1229,7 @@ function Room.rating_adjustment_approved(self)
   end
 end
 
+-- from original server code
 function calculate_rating_adjustment(Rc, Ro, Oa, k)
   --[[ --Algorithm we are implementing, per community member Bbforky:
       Formula for Calculating expected outcome:
@@ -1175,6 +1258,7 @@ function calculate_rating_adjustment(Rc, Ro, Oa, k)
   return Rn
 end
 
+-- from original server code
 function adjust_ratings(room, winning_player_number)
     print("We'd be adjusting the rating of "..room.a.name.." and "..room.b.name..". Player "..winning_player_number.." wins!")
     local players = {room.a, room.b}
@@ -1343,6 +1427,7 @@ function adjust_ratings(room, winning_player_number)
     end
 end
 
+-- from original server code
 function load_placement_matches(user_id)
   print("Requested loading placement matches for user_id:  "..(user_id or "nil"))
   if not loaded_placement_matches.incomplete[user_id] then
@@ -1361,6 +1446,7 @@ function load_placement_matches(user_id)
   end
 end
 
+-- from original server code
 function qualifies_for_placement(user_id)
   --local placement_match_win_ratio_requirement = .2
   load_placement_matches(user_id)
@@ -1385,6 +1471,7 @@ function qualifies_for_placement(user_id)
   return true
 end
 
+-- from original server code
 function process_placement_matches(user_id)
   local rating = DEFAULT_RATING
   local k = 20 -- adjusts max points gained or lost per match
@@ -1442,6 +1529,7 @@ function process_placement_matches(user_id)
   move_user_placement_file_to_complete(user_id)
 end
 
+-- from original server code
 function get_league(rating)
   if not rating then
     return leagues[1].league --("Newcomer")
@@ -1459,10 +1547,11 @@ function Connection.F(self, message)
 end
 
 local ok_ncolors = {}
-for i=2,7 do
-  ok_ncolors[i..""] = true
+	for i=2,7 do
+		ok_ncolors[i..""] = true
 end
 
+-- from original server code
 -- P = player's panels
 function Connection.P(self, message)
   if not ok_ncolors[message[1]] then return end
@@ -1486,6 +1575,7 @@ function Connection.P(self, message)
   end
 end
 
+-- from original server code
 -- Q = player's garbage panels 
 function Connection.Q(self, message)
   if not ok_ncolors[message[1]] then return end
@@ -1511,6 +1601,7 @@ function Connection.J(self, message)
 
   --checks for name in message and processes (does whole player setup)
   if self.state == "needs_name" then
+	
 	--if no name provided
     if not message.name or message.name == "" then
       print("connection didn't send a name")
@@ -1525,16 +1616,6 @@ function Connection.J(self, message)
       self:send(response)
       return
 	
-	--if name is already taken
-    --elseif name_to_idx[message.name] then
-      --print("connection sent name: "..message.name)
-      --[[local names = {}
-      for _,v in pairs(connections) do
-        names[#names+1] = v.name -- fine if name is nil :o
-      end
-      response = {choose_another_name = {used_names = names} }
-      self:send(response)]]--
-	
 	--if name has forbidden characters
     elseif message.name:find("[^_%w]") then
       response = {choose_another_name = {reason = "Usernames are limited to alphanumeric and underscores"}}
@@ -1545,29 +1626,33 @@ function Connection.J(self, message)
       response = {choose_another_name = {reason = "The name length limit is "..NAME_LENGTH_LIMIT.. " characters"}}
       self:send(response)
     
-	--reads player's user data
-	else
-	  --do this until changing name gets fixed on client-side, also for self testing
-	  if name_to_idx[message.name] then
-	    self.name = message.name..(self.rr.cursor_number or 270000)
-	  else
-		self.name = message.name
-	  end
-
-      self.character = message.character
-      self.character_is_random = message.character_is_random
-      self.character_display_name = message.character_display_name
-      self.stage = message.stage
-      self.stage_is_random = message.stage_is_random
-      self.panels_dir = message.panels_dir
-      self.level = message.level
-      self.save_replays_publicly = message.save_replays_publicly
-      self.wants_ranked_match = message.ranked
-      lobby_changed = true
-	  rr_lobby_changed = true
-      self.state = "rr_lobby"
-      name_to_idx[self.name] = self.index
-    end --if self.state == "needs_name"
+		--reads player's user data
+		else
+	
+			--do this until changing name gets fixed on client-side, also for self testing
+			if name_to_idx[message.name] then
+				self.name = message.name..(self.rr.cursor_number or 270000)
+				
+			-- assign name
+			else
+				self.name = message.name
+			end
+			
+			-- initialize connection player preferences
+			self.character = message.character
+			self.character_is_random = message.character_is_random
+			self.character_display_name = message.character_display_name
+			self.stage = message.stage
+			self.stage_is_random = message.stage_is_random
+			self.panels_dir = message.panels_dir
+			self.level = message.level
+			self.save_replays_publicly = message.save_replays_publicly
+			self.wants_ranked_match = message.ranked
+			lobby_changed = true
+			rr_lobby_changed = true
+			self.state = "rr_lobby"
+			name_to_idx[self.name] = self.index
+		end 
 	
   --taunt	
   elseif message.taunt then
@@ -1649,106 +1734,122 @@ function Connection.J(self, message)
       end
     end
 
+		-- both players ready to play
     if self.ready and self.opponent.ready then
-        self.room.replay = {}
-        self.room.replay.vs = {P="",O="",I="",Q="",R="",in_buf="",
-                    P1_level=self.room.a.level,P2_level=self.room.b.level,
-                    P1_char=self.room.a.character,P2_char=self.room.b.character, ranked = self.room:rating_adjustment_approved(),
-                    do_countdown = true}
-        if self.player_number == 1 then
-          start_match(self, self.opponent)
-        else
-          start_match(self.opponent, self)
-        end
+			-- setup replay
+			self.room.replay = {}
+			self.room.replay.vs = {P="",O="",I="",Q="",R="",in_buf="",
+									P1_level=self.room.a.level,P2_level=self.room.b.level,
+									P1_char=self.room.a.character,P2_char=self.room.b.character, ranked = self.room:rating_adjustment_approved(),
+									do_countdown = true}
+									
+			-- begin the match
+			if self.player_number == 1 then
+				start_match(self, self.opponent)
+			else
+				start_match(self.opponent, self)
+			end
+			
     else
+		
       self.opponent:send(message)
       message.player_number = self.player_number
       print("about to send match start to spectators of "..(self.name or "nil").. " and "..(self.opponent.name or "nil"))
       self.room:send_to_spectators(message) -- TODO: may need to include in the message who is sending the message
     end
 
-  --rr lobby
+  --round robin lobby
   elseif self.state == "rr_lobby" and message.rr_state then
+		-- read lobby state
     self.rr.cursor_state = message.rr_state.cursor_state
-	self.rr.cursor_selected = message.rr_state.cursor_selected
-	self.rr.cursor_ready = message.rr_state.cursor_ready
+		self.rr.cursor_selected = message.rr_state.cursor_selected
+		self.rr.cursor_ready = message.rr_state.cursor_ready
 
-	if self.rr.cursor_active ~= nil and (self.rr.cursor_active ~= message.rr_state.cursor_active) then
-		if message.rr_state.cursor_active == true then
-			rr_player_queue:push(self.index)
-		elseif message.rr_state.cursor_active == false then
-			remove_from_queue(self.index)
+		-- add self to the player queue if active
+		if self.rr.cursor_active ~= nil and (self.rr.cursor_active ~= message.rr_state.cursor_active) then
+			if message.rr_state.cursor_active == true then
+				rr_player_queue:push(self.index)
+			elseif message.rr_state.cursor_active == false then
+				remove_from_queue(self.index)
+			end
 		end
-	end
-	self.rr.cursor_active = message.rr_state.cursor_active
 		
-	rr_lobby_changed = true
-	
-	if self.state == "rr_lobby" and connections[rr_r_player] and connections[rr_l_player] and
-		connections[rr_r_player].rr.cursor_ready and connections[rr_l_player].rr.cursor_ready then
+		self.rr.cursor_active = message.rr_state.cursor_active
+		rr_lobby_changed = true
+		
+		-- start a match in round robin mode
+		if self.state == "rr_lobby" and connections[rr_r_player] and connections[rr_l_player] and
+			connections[rr_r_player].rr.cursor_ready and connections[rr_l_player].rr.cursor_ready then
 
-		connections[rr_l_player].rr.match_points = 0
-		connections[rr_r_player].rr.match_points = 0
-		
-		rr_start_match(connections[rr_l_player], connections[rr_r_player])
-	end
+			connections[rr_l_player].rr.match_points = 0
+			connections[rr_r_player].rr.match_points = 0
+			
+			rr_start_match(connections[rr_l_player], connections[rr_r_player])
+		end
 	
+	-- change round robin play mode
   elseif self.state == "rr_lobby" and message.change_play_mode then
 
-	if rr_play_mode == "Even" then
-		rr_play_mode = "Winner"
-	else
-		rr_play_mode = "Even"
-	end
-	rr_lobby_changed = true
+		if rr_play_mode == "Even" then
+			rr_play_mode = "Winner"
+		else
+			rr_play_mode = "Even"
+		end
+		
+		rr_lobby_changed = true
   
+	-- change round robin win mode
   elseif self.state == "rr_lobby" and message.change_win_mode then
-	if rr_win_mode == "Single Match" then
-		rr_win_mode = "Best of Three" 
-	else
-		rr_win_mode = "Single Match"
-	end
-	rr_lobby_changed = true
+		if rr_win_mode == "Single Match" then
+			rr_win_mode = "Best of Three" 
+		else
+			rr_win_mode = "Single Match"
+		end
+		rr_lobby_changed = true
 	
   --playing and game over	
   elseif self.state == "playing" and message.game_over then
     self.room.game_outcome_reports[self.player_number] = message.outcome
-      if self.room:resolve_game_outcome() then
-        print("\n*******************************")
-        print("***"..self.room.a.name.." ".. self.room.win_counts[1].." - "..self.room.win_counts[2].." "..self.room.b.name.."***")
-        print("*******************************\n")
-        self.room.game_outcome_reports = {}
-	
-		if rr_win_mode == "Best of Three" and self.room.win_counts[1] < 2 and self.room.win_counts[2] < 2 then
-		  rr_start_match(connections[rr_l_player], connections[rr_r_player])
-		else 
-			self.room.a.state = "rr_lobby"
-			self.room.b.state = "rr_lobby"
-			
-			
-			for _, v in pairs(connections) do
-			  if v.rr then 
-			    v.rr.cursor_state = "Sit Out"
-			  end
-			end
-			
-			rr_l_player = nil
-			rr_r_player = nil
-			update_player_queue()
-			
-			if rr_l_player and connections[rr_l_player] then
-				connections[rr_l_player].rr.cursor_state = "Ready Left Player"
-			end
-			
-			if rr_r_player and connections[rr_r_player] then
-				connections[rr_r_player].rr.cursor_state = "Ready Right Player"
-			end
+		
+		if self.room:resolve_game_outcome() then
+			-- print winner
+			print("\n*******************************")
+			print("***"..self.room.a.name.." ".. self.room.win_counts[1].." - "..self.room.win_counts[2].." "..self.room.b.name.."***")
+			print("*******************************\n")
+			self.room.game_outcome_reports = {}
+		
+			-- if no one won best 2 of 3
+			if rr_win_mode == "Best of Three" and self.room.win_counts[1] < 2 and self.room.win_counts[2] < 2 then
+				rr_start_match(connections[rr_l_player], connections[rr_r_player])
+				
+			-- there is a match winner, reinitialize lobby
+			else 
+				self.room.a.state = "rr_lobby"
+				self.room.b.state = "rr_lobby"
+				
+				for _, v in pairs(connections) do
+					if v.rr then 
+						v.rr.cursor_state = "Sit Out"
+					end
+				end
+				
+				rr_l_player = nil
+				rr_r_player = nil
+				update_player_queue()
+				
+				if rr_l_player and connections[rr_l_player] then
+					connections[rr_l_player].rr.cursor_state = "Ready Left Player"
+				end
+				
+				if rr_r_player and connections[rr_r_player] then
+					connections[rr_r_player].rr.cursor_state = "Ready Right Player"
+				end
 
-			self.room:close()
-			rr_ingame = false
-			rr_lobby_changed = true
-		end	
-      end
+				self.room:close()
+				rr_ingame = false
+				rr_lobby_changed = true
+			end	
+    end
 	  
   --leave room from in game or character select	  
   elseif (self.state == "playing" or self.state == "character select") and message.leave_room then
@@ -1766,6 +1867,7 @@ function Connection.J(self, message)
   end
 end
 
+-- from original server code
 -- TODO: this should not be O(n^2) lol
 -- parses the data and sends it to the appropriate function depending on the message type
 function Connection.data_received(self, data)
@@ -1837,65 +1939,33 @@ function Connection.read(self)
   end
 end
 
---[[ eg.  [panels_dir] => "Panel Attack"
-  [save_replays_publicly] => "with my name"
-  [character_display_name] => "Poochy"
-  [level] => 9
-  [leftovers] => ""
-  [wants_ranked_match] => true
-  [stage] => "pa_stages_water"
-  [character] => "pa_characters_poochy"
-  [last_read] => 1612141101
-  [logged_in] => false
-  [index] => 1
-  [state] => "lobby"
-  [player_number] => 0
-  [name] => "quaalj"
-  [socket] => tcp{client}: 0151F150 ]]--
+-- send current lobby state to all connections if there are changes
 function broadcast_lobby()
   if lobby_changed then
+	
     for _,v in pairs(connections) do
       if v.state == "lobby" then
         v:send(lobby_state())
       end
     end
+		
     lobby_changed = false
   end
 end
 
+-- send round robin lobby information
 function broadcast_rr_lobby()
 
   if rr_lobby_changed then
-	for _, v in pairs(connections) do
-
-	  v:send(rr_lobby_state())
-	end
-	rr_lobby_changed = false
-  end
-  
+		for _, v in pairs(connections) do
+			v:send(rr_lobby_state())
+		end
+		
+		rr_lobby_changed = false
+  end 
 end
 
---[[function process_game_over_message(sender, message)
-  sender.room.game_outcome_reports[sender.player_number] = {i_won=message.i_won, tie=message.tie}
-  print("processing game_over message. Sender: "..sender.name)
-  local reports = sender.room.game_outcome_reports
-  if not reports[sender.opponent.player_number] then
-    sender.room.game_outcome_reports["official outcome"] = "pending other player's report"
-  elseif reports[1].tie and reports[2].tie then
-    sender.room.game_outcome_reports["official outcome"] = "tie"
-  elseif reports[1].i_won ~= not reports[2].i_won or reports[1].tie ~= reports[2].tie then
-    sender.room.game_outcome_reports["official outcome"] = "clients disagree"
-  elseif reports[1].i_won then
-    sender.room.game_outcome_reports["official outcome"] = 1
-  elseif reports[2].i_won then
-    sender.room.game_outcome_reports["official outcome"] = 2
-  else
-    print("Error: nobody won or tied?")
-  end
-  print("process_game_over_message outcome for "..sender.room.name..": "..sender.room.game_outcome_reports["official outcome"])
-end
---]]
-
+-- from original server code
 local server_socket = socket.bind("*", SERVER_PORT or 49569) --for official server
 --local server_socket = socket.bind("*", 59569) --for beta server
 local sep = package.config:sub(1, 1) --determines os directory separator (i.e. "/" or "\")
@@ -1937,23 +2007,6 @@ end
 initialize_mt_generator(csprng_seed)
 seed_from_mt(extract_mt())
 ban_list = {}
---timezone testing
--- print("server_UTC_offset (in seconds) is "..tzoffset)
--- print("that's "..(tzoffset/3600).." hours")
--- local server_start_time = os.time()
--- print("current local time: "..server_start_time)
--- print("current UTC time: "..to_UTC(server_start_time))
--- local now = os.date("*t")
--- local formatted_local_time = string.format("%04d-%02d-%02d-%02d-%02d-%02d", now.year, now.month, now.day, now.hour, now.min, now.sec)
--- print("formatted local time: "..formatted_local_time)
--- now = os.date("*t",to_UTC(server_start_time))
--- local formatted_UTC_time = string.format("%04d-%02d-%02d-%02d-%02d-%02d", now.year, now.month, now.day, now.hour, now.min, now.sec)
--- print("formatted UTC time: "..formatted_UTC_time)
-print("RATING_SPREAD_MODIFIER: "..(RATING_SPREAD_MODIFIER or "nil"))
-print("initialized!")
--- print("get_timezone() output: "..get_timezone())
--- print("get_timezone_offset(os.time()) output: "..get_timezone_offset(os.time()))
--- print("get_tzoffset(get_timezone()) output:"..get_tzoffset(get_timezone()))
 
 local prev_now = time()
 
