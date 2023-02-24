@@ -1,7 +1,11 @@
-Adds round robin style play mode both offline and with custom server
+Adds round-robin style play mode both offline and with custom server
 
 1.	Install love (http://love2d.org/)
 2.	cd Panel-Attack
 	love ./
 	
-	
+To run server, follow instructions in `server README.txt` to build luajit. Then run `luajit rrserver.lua`
+
+To play round-robin offline, select 'Round Robin' from the main menu and the number of players who are playing locally.
+
+To play round-robin online, first start server as above. Players connect to the server by selecting 'Custom Server' from the main menu then entering the server's ip address.
